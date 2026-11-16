@@ -1,0 +1,35 @@
+# Experiment 03 — few-shot examples on top of schema linking (C4 -> C5).
+#   C5-train:    8 examples from BIRD train, other databases (paper §4 setup)
+#   C5-querylog: 8 examples from BIRD dev (minus all MiniDev), same database ("query log", §5-6)
+# Examples are added to the FINAL call only, so the linking drafts are cache hits from 02.
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/03_fewshot.yaml --split dev
+description: "03 few-shot: none vs train (other DBs) vs query log (same DB), on top of linking"
+
+prompts:
+  - "{{question}}" # unused by the pipeline provider; it builds its own prompts from vars
+
+providers:
+  - id: file://../providers/pipeline.py
+    label: C4-linked
+    config: { metadata: fused, hints: false, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C5-train
+    config: { metadata: fused, hints: false, linking: llm, fewshot: train }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog
+    config: { metadata: fused, hints: false, linking: llm, fewshot: querylog }
+  - id: file://../providers/pipeline.py
+    label: C4-linked+hints
+    config: { metadata: fused, hints: true, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C5-train+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: train }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: querylog }
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex

@@ -1,0 +1,26 @@
+# Data (downloaded or derived; reproducible via scripts/)
+data/raw/
+data/derived/
+!data/subset_ids.json
+
+# Paper PDF (copyright; link to the paper instead)
+*.pdf
+
+# Raw run outputs (summaries in results/ ARE committed)
+results/raw/
+.promptfoo/
+.cache/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

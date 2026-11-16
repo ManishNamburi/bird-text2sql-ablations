@@ -1,0 +1,1502 @@
+- description: q24 california_schools [moderate]
+  vars:
+    question_id: 24
+    db_id: california_schools
+    question: Give the names of the schools with the percent eligible for free meals in K-12 is more than 0.1 and test takers whose test score is greater than or equal to 1500?
+    evidence: Percent eligible for free meals = Free Meal Count (K-12) / Total (Enrollment (K-12)
+    difficulty: moderate
+  metadata:
+    db_id: california_schools
+    difficulty: moderate
+- description: q25 california_schools [moderate]
+  vars:
+    question_id: 25
+    db_id: california_schools
+    question: Name schools in Riverside which the average of average math score for SAT is grater than 400, what is the funding type of these schools?
+    evidence: Average of average math = sum(average math scores) / count(schools).
+    difficulty: moderate
+  metadata:
+    db_id: california_schools
+    difficulty: moderate
+- description: q27 california_schools [moderate]
+  vars:
+    question_id: 27
+    db_id: california_schools
+    question: What is the average score in writing for the schools that were opened after 1991 or closed before 2000? List the school names along with the score. Also, list the communication number of the schools if there is any.
+    evidence: Communication number refers to phone number.
+    difficulty: moderate
+  metadata:
+    db_id: california_schools
+    difficulty: moderate
+- description: q37 california_schools [moderate]
+  vars:
+    question_id: 37
+    db_id: california_schools
+    question: What is the complete address of the school with the lowest excellence rate? Indicate the Street, City, Zip and State.
+    evidence: Execellence Rate = NumGE1500 / NumTstTakr; complete address has Street, City, State, Zip code
+    difficulty: moderate
+  metadata:
+    db_id: california_schools
+    difficulty: moderate
+- description: q46 california_schools [simple]
+  vars:
+    question_id: 46
+    db_id: california_schools
+    question: Which state special schools have the highest number of enrollees from grades 1 through 12?
+    evidence: State Special Schools refers to DOC = 31; Grades 1 through 12 means K-12
+    difficulty: simple
+  metadata:
+    db_id: california_schools
+    difficulty: simple
+- description: q47 california_schools [moderate]
+  vars:
+    question_id: 47
+    db_id: california_schools
+    question: What is the monthly average number of schools that opened in Alameda County under the jurisdiction of the Elementary School District in 1980?
+    evidence: Elementary School District refers to DOC = 52; Monthly average number of schools that opened in 1980 = count(schools that opened in 1980) / 12
+    difficulty: moderate
+  metadata:
+    db_id: california_schools
+    difficulty: moderate
+- description: q50 california_schools [simple]
+  vars:
+    question_id: 50
+    db_id: california_schools
+    question: What is the postal street address for the school with the 7th highest Math average? Indicate the school's name.
+    evidence: Postal street and mailing street are synonyms.
+    difficulty: simple
+  metadata:
+    db_id: california_schools
+    difficulty: simple
+- description: q62 california_schools [challenging]
+  vars:
+    question_id: 62
+    db_id: california_schools
+    question: What is the total number of non-chartered schools in the county of Los Angeles with a percent (%) of eligible free meals for grades 1 through 12 that is less than 0.18%?
+    evidence: non-chartered schools refer to schools whose Charter = 0; K-12 means grades 1 through 12; percent of eligible free rate for K-12 = `Free Meal Count (K-12)` * 100 / `Enrollment (K-12)`
+    difficulty: challenging
+  metadata:
+    db_id: california_schools
+    difficulty: challenging
+- description: q83 california_schools [challenging]
+  vars:
+    question_id: 83
+    db_id: california_schools
+    question: Of the schools that offers a magnet program serving a grade span of Kindergarten to 8th grade, how many offers Multiple Provision Types? List the number of cities that offers a Kindergarten to 8th grade span and indicate how many schools are there serving such grade span for each city.
+    evidence: Kindergarten to 8th grade refers to K-8; 'Offers a magnet program' means Magnet = 1; Multiple Provision Types refers to `NSLP Provision Status` = 'Multiple Provision Types'
+    difficulty: challenging
+  metadata:
+    db_id: california_schools
+    difficulty: challenging
+- description: q341 card_games [simple]
+  vars:
+    question_id: 341
+    db_id: card_games
+    question: What are the borderless cards available without powerful foils?
+    evidence: borderless' refers to borderColor; poweful foils refers to cardKingdomFoilId paired with cardKingdomId AND cardKingdomId is not null
+    difficulty: simple
+  metadata:
+    db_id: card_games
+    difficulty: simple
+- description: q344 card_games [moderate]
+  vars:
+    question_id: 344
+    db_id: card_games
+    question: List all the mythic rarity print cards banned in gladiator format.
+    evidence: mythic rarity printing refers to rarity = 'mythic'; card banned refers to status = 'Banned'; in gladiator format refers to format = 'gladiator';
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q346 card_games [moderate]
+  vars:
+    question_id: 346
+    db_id: card_games
+    question: List all the card id and artist with unknown power which are legal for commander play format.
+    evidence: unknown power refers to power = '*' or POWER IS NULL; commander play format refers to format = 'commander'; legal for commander play format refers to format = 'commander' where status = 'Legal'
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q352 card_games [moderate]
+  vars:
+    question_id: 352
+    db_id: card_games
+    question: Calculate the percentage of the cards availabe in Chinese Simplified.
+    evidence: Chinese Simplified' is the language; percentage = Divide(Sum(id where language = 'Chinese Simplified'), Count(id)) *100
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q356 card_games [simple]
+  vars:
+    question_id: 356
+    db_id: card_games
+    question: How many cards have infinite power?
+    evidence: infinite power refers to power = '*';
+    difficulty: simple
+  metadata:
+    db_id: card_games
+    difficulty: simple
+- description: q366 card_games [simple]
+  vars:
+    question_id: 366
+    db_id: card_games
+    question: What is the rule of playing card "Benalish Knight"?
+    evidence: Benalish Knight' is the name of card; rule of playing card refers to format;
+    difficulty: simple
+  metadata:
+    db_id: card_games
+    difficulty: simple
+- description: q377 card_games [simple]
+  vars:
+    question_id: 377
+    db_id: card_games
+    question: How many cards with original type of "Summon - Angel" have subtype other than "Angel"?
+    evidence: subtype other than Angel refers to subtypes is not 'Angel';
+    difficulty: simple
+  metadata:
+    db_id: card_games
+    difficulty: simple
+- description: q391 card_games [moderate]
+  vars:
+    question_id: 391
+    db_id: card_games
+    question: Among the Artifact cards, which are black color and comes with foreign languague translation?
+    evidence: Artifact card refers to originalType = 'Artifact'; black color refers to colors = 'B'; foreign language refers to language in foreign_data
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q468 card_games [moderate]
+  vars:
+    question_id: 468
+    db_id: card_games
+    question: What is the Simplified Chinese translation of the name of the set "Eighth Edition"?
+    evidence: Eighth Edition is the name of card set which refers to name = 'Eighth Edition'; Simplified Chinese refers to language = 'Chinese Simplified'; translation of the name refers to translation
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q469 card_games [moderate]
+  vars:
+    question_id: 469
+    db_id: card_games
+    question: 'Did the set of cards with "Angel of Mercy" appear on Magic: The Gathering Online?'
+    evidence: 'card set "Angel of Mercy" refers to name = ''Angel of Mercy''; appear on Magic: The Gathering Online refers to mtgoCode is NOT NULL and vice versa'
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q477 card_games [challenging]
+  vars:
+    question_id: 477
+    db_id: card_games
+    question: Which of these artists have designed a card in the set Coldsnap, Jeremy Jarvis, Aaron Miller or Chippy?
+    evidence: card set Coldsnap refers to name = 'Coldsnap'; Jeremy Jarvis, Aaron Miller or Chippy are the name of artists which refers to artist IN ('Jeremy Jarvis', 'Aaron Miller','Chippy');
+    difficulty: challenging
+  metadata:
+    db_id: card_games
+    difficulty: challenging
+- description: q479 card_games [moderate]
+  vars:
+    question_id: 479
+    db_id: card_games
+    question: Among the cards with converted mana cost higher than 5 in the set Coldsnap, how many of them have unknown power?
+    evidence: card set Coldsnap refers to name = 'Coldsnap'; converted mana cost higher than 5 refers to convertedManaCost > 5; unknown power refers to power = '*' or T1.power is null
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q483 card_games [moderate]
+  vars:
+    question_id: 483
+    db_id: card_games
+    question: Please list the Italian text ruling of all the cards in the set Coldsnap.
+    evidence: card set Coldsnap refers to name = 'Coldsnap'; Italian refers to language = 'Italian'
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q487 card_games [challenging]
+  vars:
+    question_id: 487
+    db_id: card_games
+    question: What is the percentage of incredibly powerful cards in the set Coldsnap?
+    evidence: card set Coldsnap refers to name = 'Coldsnap'; foil is incredibly powerful refers to cardKingdomFoilId is not null AND cardKingdomId is not null; the percentage of incredibly powerful cards in the set refers to DIVIDE(SUM(incredibly powerful), SUM(name = 'Coldsnap'))*100
+    difficulty: challenging
+  metadata:
+    db_id: card_games
+    difficulty: challenging
+- description: q518 card_games [moderate]
+  vars:
+    question_id: 518
+    db_id: card_games
+    question: Which of the play format has the highest number of banned status? Indicate the play format and the names of all the card meet the condition.
+    evidence: play format refers to format; banned status refers to status = 'Banned'; the highest number of banned status refers to MAX(COUNT(status = 'Banned'))
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q529 card_games [moderate]
+  vars:
+    question_id: 529
+    db_id: card_games
+    question: Find and list the names of sets which doesn't have Japanese translation but have Korean translation.
+    evidence: names of sets refers to name; doesn't have Japanese translation refers to language not like '%Japanese%'; have Korean translation refers to language = 'Korean'
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q531 codebase_community [simple]
+  vars:
+    question_id: 531
+    db_id: codebase_community
+    question: Which user has a higher reputation, Harlan or Jarrod Dixon?
+    evidence: '"Harlan" and "Jarrod Dixon" are both DisplayName; highest reputation refers to Max(Reputation)'
+    difficulty: simple
+  metadata:
+    db_id: codebase_community
+    difficulty: simple
+- description: q532 codebase_community [simple]
+  vars:
+    question_id: 532
+    db_id: codebase_community
+    question: Please list the display names of all the users whose accounts were created in the year 2011.
+    evidence: account created in the year 2011 refers to year(CreationDate) = 2011
+    difficulty: simple
+  metadata:
+    db_id: codebase_community
+    difficulty: simple
+- description: q533 codebase_community [simple]
+  vars:
+    question_id: 533
+    db_id: codebase_community
+    question: How many users last accessed the website after 2014/9/1?
+    evidence: last accessed after 2014/9/1 refers to LastAccessDate > '2014-09-01'
+    difficulty: simple
+  metadata:
+    db_id: codebase_community
+    difficulty: simple
+- description: q539 codebase_community [simple]
+  vars:
+    question_id: 539
+    db_id: codebase_community
+    question: Who is the owner of the post "Eliciting priors from experts"?
+    evidence: '"Eliciting priors from experts" is the Title of post; owner refers to DisplayName'
+    difficulty: simple
+  metadata:
+    db_id: codebase_community
+    difficulty: simple
+- description: q557 codebase_community [moderate]
+  vars:
+    question_id: 557
+    db_id: codebase_community
+    question: Among the posts with a score of over 5, what is the percentage of them being owned by an elder user?
+    evidence: score of over 5 refers to Score > 5; elder user refers to Age > 65; percentage = Divide (Count(Id where Age>65), Count(Id)) * 100
+    difficulty: moderate
+  metadata:
+    db_id: codebase_community
+    difficulty: moderate
+- description: q576 codebase_community [simple]
+  vars:
+    question_id: 576
+    db_id: codebase_community
+    question: Name the user that commented 'thank you user93!'
+    evidence: '"thank you user93" is the Text of comment; user refers to DisplayName'
+    difficulty: simple
+  metadata:
+    db_id: codebase_community
+    difficulty: simple
+- description: q581 codebase_community [moderate]
+  vars:
+    question_id: 581
+    db_id: codebase_community
+    question: Who is the owner of the post titled 'Open source tools for visualizing multi-dimensional data?'
+    evidence: '''Open source tools for visualizing multi-dimensional data'' is the Title of Post; owner refers to DisplayName;'
+    difficulty: moderate
+  metadata:
+    db_id: codebase_community
+    difficulty: moderate
+- description: q587 codebase_community [moderate]
+  vars:
+    question_id: 587
+    db_id: codebase_community
+    question: Calculate the average view count of each post tagged as 'humor' and list the title and the comment of each post.
+    evidence: tagged as  'humor' refers to tag = '<humor>'; comment of the post refers to Text; average view count = AVG(ViewCount)
+    difficulty: moderate
+  metadata:
+    db_id: codebase_community
+    difficulty: moderate
+- description: q633 codebase_community [moderate]
+  vars:
+    question_id: 633
+    db_id: codebase_community
+    question: Which post by slashnick has the most answers count? State the post ID.
+    evidence: most answers count refers to MAX(AnswerCount); post by slashnick refers to DisplayName = 'slashnick';
+    difficulty: moderate
+  metadata:
+    db_id: codebase_community
+    difficulty: moderate
+- description: q639 codebase_community [challenging]
+  vars:
+    question_id: 639
+    db_id: codebase_community
+    question: Based on posts posted by Community, calculate the percentage of posts that use the R language.
+    evidence: DIVIDE(COUNT(PostId WHERE TagName = 'r')), (COUNT(PostId WHERE DisplayName = 'Community')) as percentage; R language refers to tagname = 'r'
+    difficulty: challenging
+  metadata:
+    db_id: codebase_community
+    difficulty: challenging
+- description: q682 codebase_community [moderate]
+  vars:
+    question_id: 682
+    db_id: codebase_community
+    question: Which is the most valuable post in 2010? Please give its id and the owner's display name.
+    evidence: the most valuable post in 2010 refers to MAX(FavoriteCount) where year(CreationDate) = 2010;
+    difficulty: moderate
+  metadata:
+    db_id: codebase_community
+    difficulty: moderate
+- description: q683 codebase_community [moderate]
+  vars:
+    question_id: 683
+    db_id: codebase_community
+    question: What is the percentage of posts whose owners had a reputation of over 1000 in 2011?
+    evidence: percentage = DIVIDE(COUNT(Id where YEAR(CreationDate) = 2011 and Reputation > 1000), COUNT(Id) ) * 100;
+    difficulty: moderate
+  metadata:
+    db_id: codebase_community
+    difficulty: moderate
+- description: q701 codebase_community [challenging]
+  vars:
+    question_id: 701
+    db_id: codebase_community
+    question: Among all the posts posted by the most influential user, identify the percentage with a score above 50.
+    evidence: The higher reputation the user has the more influence; percentage = DIVIDE(COUNT(stats_posts.Id where Score > 50 and MAX(Reputation))), COUNT(stats_posts.Id where MAX(Reputation));
+    difficulty: challenging
+  metadata:
+    db_id: codebase_community
+    difficulty: challenging
+- description: q704 codebase_community [simple]
+  vars:
+    question_id: 704
+    db_id: codebase_community
+    question: What is the excerpt post ID and wiki post ID of the tag named sample?
+    evidence: tag named sample refers to TagName = 'sample';
+    difficulty: simple
+  metadata:
+    db_id: codebase_community
+    difficulty: simple
+- description: q707 codebase_community [moderate]
+  vars:
+    question_id: 707
+    db_id: codebase_community
+    question: Among the posts with views ranging from 100 to 150, what is the comment with the highest score?
+    evidence: views ranging from 100 to 150 refers to ViewCount BETWEEN 100 and 150; comment with the highest score refers to Text where MAX(Score);
+    difficulty: moderate
+  metadata:
+    db_id: codebase_community
+    difficulty: moderate
+- description: q1471 debit_card_specializing [simple]
+  vars:
+    question_id: 1471
+    db_id: debit_card_specializing
+    question: What is the ratio of customers who pay in EUR against customers who pay in CZK?
+    evidence: ratio of customers who pay in EUR against customers who pay in CZK = count(Currency = 'EUR') / count(Currency = 'CZK').
+    difficulty: simple
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: simple
+- description: q1473 debit_card_specializing [moderate]
+  vars:
+    question_id: 1473
+    db_id: debit_card_specializing
+    question: What was the average monthly consumption of customers in SME for the year 2013?
+    evidence: Average Monthly consumption = AVG(Consumption) / 12; Year 2013 can be presented as Between 201301 And 201312; The first 4 strings of the Date values in the yearmonth table can represent year.
+    difficulty: moderate
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: moderate
+- description: q1484 debit_card_specializing [simple]
+  vars:
+    question_id: 1484
+    db_id: debit_card_specializing
+    question: How many more "discount" gas stations does the Czech Republic have compared to Slovakia?
+    evidence: Czech Republic can be represented as the Country value in gasstations table is 'CZE'; Slovakia can be represented as the Country value in the gasstations table is 'SVK';  Computation of more "discount" gas stations= Total no. of discount gas stations in Czech Republic - Total no. of discount gas stations in Slovakia
+    difficulty: simple
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: simple
+- description: q1490 debit_card_specializing [moderate]
+  vars:
+    question_id: 1490
+    db_id: debit_card_specializing
+    question: How many percent of LAM customer consumed more than 46.73?
+    evidence: Percentage of LAM customer consumed more than 46.73 = (Total no. of LAM customers who consumed more than 46.73 / Total no. of LAM customers) * 100.
+    difficulty: moderate
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: moderate
+- description: q1506 debit_card_specializing [moderate]
+  vars:
+    question_id: 1506
+    db_id: debit_card_specializing
+    question: Please list the product descriptions of the transactions taken place in the gas stations in the Czech Republic.
+    evidence: 'Czech Republic can be represented as the Country value in the gasstations table is ''CZE''; '
+    difficulty: moderate
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: moderate
+- description: q1514 debit_card_specializing [simple]
+  vars:
+    question_id: 1514
+    db_id: debit_card_specializing
+    question: What kind of currency did the customer paid at 16:25:00 in 2012/8/24?
+    evidence: '''2012/8/24'' can be represented by ''2012-08-24''; '
+    difficulty: simple
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: simple
+- description: q1526 debit_card_specializing [challenging]
+  vars:
+    question_id: 1526
+    db_id: debit_card_specializing
+    question: For the customer who paid 634.8 in 2012/8/25, what was the consumption decrease rate from Year 2012 to 2013?
+    evidence: '''2012/8/24'' can be represented by ''2012-08-24''; Consumption decrease rate = (consumption_2012 - consumption_2013) / consumption_2012'
+    difficulty: challenging
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: challenging
+- description: q1528 debit_card_specializing [simple]
+  vars:
+    question_id: 1528
+    db_id: debit_card_specializing
+    question: What is the percentage of "premium" against the overall segment in Country = "SVK"?
+    evidence: ''
+    difficulty: simple
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: simple
+- description: q1025 european_football_2 [moderate]
+  vars:
+    question_id: 1025
+    db_id: european_football_2
+    question: Give the name of the league had the most goals in the 2016 season?
+    evidence: league that had the most goals refers to MAX(SUM(home_team_goal, away_team_goal)); 2016 season refers to season = '2015/2016';
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q1028 european_football_2 [challenging]
+  vars:
+    question_id: 1028
+    db_id: european_football_2
+    question: In Scotland Premier League, which away team won the most during the 2010 season?
+    evidence: Final result should return the Team.team_long_name; Scotland Premier League refers to League.name = 'Scotland Premier League'; away team refers to away_team_api_id; away team that won the most refers to MAX(SUBTRACT(away_team_goal, home_team_goal) > 0); 2010 season refers to season = '2009/2010'; won the most refers to MAX(COUNT(*));
+    difficulty: challenging
+  metadata:
+    db_id: european_football_2
+    difficulty: challenging
+- description: q1039 european_football_2 [simple]
+  vars:
+    question_id: 1039
+    db_id: european_football_2
+    question: Find the average number of long-shot done by Ahmed Samir Farag.
+    evidence: average number of long shot = DIVIDE(SUM(long_shots), COUNT(player_fifa_api_id));
+    difficulty: simple
+  metadata:
+    db_id: european_football_2
+    difficulty: simple
+- description: q1048 european_football_2 [simple]
+  vars:
+    question_id: 1048
+    db_id: european_football_2
+    question: What is the overall rating of the football player Gabriel Tamas in year 2011?
+    evidence: in year 2011 refers to strftime('%Y', date) = '2011';
+    difficulty: simple
+  metadata:
+    db_id: european_football_2
+    difficulty: simple
+- description: q1068 european_football_2 [moderate]
+  vars:
+    question_id: 1068
+    db_id: european_football_2
+    question: From 2010 to 2015, what was the average overall rating of players who are higher than 170?
+    evidence: from 2010 to 2015 refers to strftime('%Y', date) >= '2010' AND <= '2015'; average overall rating = SUM(t2.overall_rating)/ COUNT(t2.id); higher than 170 refers to Player.height > 170;
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q1076 european_football_2 [challenging]
+  vars:
+    question_id: 1076
+    db_id: european_football_2
+    question: 'What is the difference of the average ball control score between Abdou Diallo and Aaron Appindangoye
+
+      ?'
+    evidence: difference of the average ball control = SUBTRACT(AVG(ball_control WHERE player_name = 'Abdou Diallo'), AVG(ball_control WHERE player_name = 'Aaron Appindangoye')); AVG(ball_control WHERE player_name = 'XX XX') = SUM(CASE WHEN player_name = 'XX XX' THEN ball_control ELSE 0 END) / COUNT(CASE WHEN player_name = 'XX XX' THEN id ELSE NULL END)
+    difficulty: challenging
+  metadata:
+    db_id: european_football_2
+    difficulty: challenging
+- description: q1078 european_football_2 [simple]
+  vars:
+    question_id: 1078
+    db_id: european_football_2
+    question: Which player is older, Aaron Lennon or Abdelaziz Barrada?
+    evidence: The larger the birthday value, the younger the person is, and vice versa;
+    difficulty: simple
+  metadata:
+    db_id: european_football_2
+    difficulty: simple
+- description: q1091 european_football_2 [moderate]
+  vars:
+    question_id: 1091
+    db_id: european_football_2
+    question: How many matches were held in the Belgium Jupiler League in April, 2009?
+    evidence: Belgium Jupiler League refers to League.name = 'Belgium Jupiler League'; in April, 2009 refers to SUBSTR(`date`, 1, 7);
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q1094 european_football_2 [challenging]
+  vars:
+    question_id: 1094
+    db_id: european_football_2
+    question: How much higher in percentage is Ariel Borysiuk's overall rating than that of Paulin Puel?
+    evidence: how much higher in percentage = MULTIPLY(DIVIDE(SUBTRACT(overall_rating WHERE player_name = 'Ariel Borysiuk', overall_rating WHERE player_name = 'Paulin Puel'), overall_rating WHERE player_name = 'Paulin Puel'), 100);
+    difficulty: challenging
+  metadata:
+    db_id: european_football_2
+    difficulty: challenging
+- description: q1103 european_football_2 [moderate]
+  vars:
+    question_id: 1103
+    db_id: european_football_2
+    question: What was the overall rating for Aaron Mooy on 2016/2/4?
+    evidence: Aaron Mooy refers to player_name = 'Aaron Mooy'; on 2016/2/4 refers to date LIKE '2016-02-04%';
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q1115 european_football_2 [challenging]
+  vars:
+    question_id: 1115
+    db_id: european_football_2
+    question: What percentage is Landon Donovan's overall rating higher than Jordan Bowery on 2013/7/12?
+    evidence: Landon Donovan's refers to player_name = 'Landon Donovan'; Jordan Bowery refers to player_name = 'Jordan Bowery'; percentage refers to DIVIDE(SUBTRACT(player_name = 'Landon Donovan' overall_rating; player_name = 'Jordan Bowery' overall_rating), player_name = 'Landon Donovan' overall_rating)*100
+    difficulty: challenging
+  metadata:
+    db_id: european_football_2
+    difficulty: challenging
+- description: q1122 european_football_2 [simple]
+  vars:
+    question_id: 1122
+    db_id: european_football_2
+    question: State the name of the most strongest player.
+    evidence: strongest players refers to player has MAX(overall_rating)
+    difficulty: simple
+  metadata:
+    db_id: european_football_2
+    difficulty: simple
+- description: q1130 european_football_2 [moderate]
+  vars:
+    question_id: 1130
+    db_id: european_football_2
+    question: What are the short name of team who played safe while creating chance of passing?
+    evidence: played safe while creating chance of passing refers to chanceCreationPassingClass = 'Safe'; short name of team refers to team_short_name
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q1136 european_football_2 [moderate]
+  vars:
+    question_id: 1136
+    db_id: european_football_2
+    question: How many players had the highest potential score for crossing that preferred to use their left foots while attacking?
+    evidence: highest potential score for crossing refers to MAX(crossing); preferred to use their left foots while attacking refers to preferred_foot = 'left'
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q1148 european_football_2 [moderate]
+  vars:
+    question_id: 1148
+    db_id: european_football_2
+    question: What is the percentage of players that are under 180 cm who have an overall strength of more than 70?
+    evidence: percentage refers to DIVIDE(COUNT(height < 180 AND overall_rating > 70),COUNT(id)) * 100
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q93 financial [moderate]
+  vars:
+    question_id: 93
+    db_id: financial
+    question: How many male customers who are living in North Bohemia have average salary greater than 8000?
+    evidence: Male means that gender = 'M'; A3 refers to region; A11 pertains to average salary.
+    difficulty: moderate
+  metadata:
+    db_id: financial
+    difficulty: moderate
+- description: q95 financial [moderate]
+  vars:
+    question_id: 95
+    db_id: financial
+    question: List out the account numbers of clients who are youngest and have highest average salary?
+    evidence: If the person A's birthdate < B's birthdate, it means that person B is younger than person A; A11 refers to average salary
+    difficulty: moderate
+  metadata:
+    db_id: financial
+    difficulty: moderate
+- description: q117 financial [moderate]
+  vars:
+    question_id: 117
+    db_id: financial
+    question: What is the percentage of loan amount that has been fully paid with no issue.
+    evidence: Loan paid with no issue means contract finished, no problems; status = 'A' means contract finished, no problems; Percentage of accounts by condition = [(total(amount) & condition) / (total amount)] * 100%
+    difficulty: moderate
+  metadata:
+    db_id: financial
+    difficulty: moderate
+- description: q125 financial [challenging]
+  vars:
+    question_id: 125
+    db_id: financial
+    question: For loans contracts which are still running where client are in debt, list the district of the and the state the percentage unemployment rate increment from year 1995 to 1996.
+    evidence: Unemployment increment rate in percentage = [(unemployment rate 2016 - unemployment rate 2015) / unemployment rate 2015] * 100; unemployment rate 2015 appears in the A12; unemployment rate 2016 appears in the A13; Loan contracts which are still running where client are in debt can be presented as status = 'D'
+    difficulty: challenging
+  metadata:
+    db_id: financial
+    difficulty: challenging
+- description: q136 financial [moderate]
+  vars:
+    question_id: 136
+    db_id: financial
+    question: Between 1/1/1995 and 12/31/1997, how many loans in the amount of at least 250,000 per account that chose monthly statement issuance were approved?
+    evidence: Frequency = 'POPLATEK MESICNE' stands for monthly issurance
+    difficulty: moderate
+  metadata:
+    db_id: financial
+    difficulty: moderate
+- description: q138 financial [moderate]
+  vars:
+    question_id: 138
+    db_id: financial
+    question: In the branch where the second-highest number of crimes were committed in 1995 occurred, how many male clients are there?
+    evidence: Male refers to gender = 'M'; A15 stands for no. of commited crimes 1995
+    difficulty: moderate
+  metadata:
+    db_id: financial
+    difficulty: moderate
+- description: q159 financial [simple]
+  vars:
+    question_id: 159
+    db_id: financial
+    question: List all the withdrawals in cash transactions that the client with the id 3356 makes.
+    evidence: operation = 'VYBER' refers to withdrawal in cash
+    difficulty: simple
+  metadata:
+    db_id: financial
+    difficulty: simple
+- description: q173 financial [challenging]
+  vars:
+    question_id: 173
+    db_id: financial
+    question: How often does account number 3 request an account statement to be released? What was the aim of debiting 3539 in total?
+    evidence: k_symbol refers to the purpose of payments
+    difficulty: challenging
+  metadata:
+    db_id: financial
+    difficulty: challenging
+- description: q189 financial [moderate]
+  vars:
+    question_id: 189
+    db_id: financial
+    question: Name the account numbers of female clients who are oldest and have lowest average salary?
+    evidence: Female refers to 'F' in the gender; A11 contains information about average salary
+    difficulty: moderate
+  metadata:
+    db_id: financial
+    difficulty: moderate
+- description: q847 formula_1 [simple]
+  vars:
+    question_id: 847
+    db_id: formula_1
+    question: What is the surname of the driver with the best lap time in race number 19 in the second qualifying period?
+    evidence: race number refers to raceId; second qualifying period refers to q2; best lap time refers to MIN(q2);
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q854 formula_1 [simple]
+  vars:
+    question_id: 854
+    db_id: formula_1
+    question: What is the coordinates location of the circuits for Australian grand prix?
+    evidence: coordinate position/location refers to lat, lng; circuits for Australian grand prix refers to races.name = 'Australian Grand Prix'
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q857 formula_1 [simple]
+  vars:
+    question_id: 857
+    db_id: formula_1
+    question: Give the coordinate position for Abu Dhabi Grand Prix.
+    evidence: coordinate position/location refers to lat, lng; Abu Dhabi Grand Prix refers to races.name = 'Abu Dhabi Grand Prix'
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q865 formula_1 [moderate]
+  vars:
+    question_id: 865
+    db_id: formula_1
+    question: For all the drivers who finished the game in race No. 592, who is the oldest?
+    evidence: drivers who finished the race refers to time is not empty (i.e. time IS NOT NULL); race number refers to raceId; date of birth refers to drivers.dob; The larger the birthday value, the younger the person is, and vice versa;
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q869 formula_1 [moderate]
+  vars:
+    question_id: 869
+    db_id: formula_1
+    question: For the constructor which got the highest point in the race No. 9 , what is its introduction website?
+    evidence: race number refers to raceId; constructor which got the highest point refers to MAX(constructorResults.points); introduction website of the constructor refers to url;
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q875 formula_1 [simple]
+  vars:
+    question_id: 875
+    db_id: formula_1
+    question: Show me the season page of year when the race No. 901 took place.
+    evidence: the season page refers to url; race number refers to raceId;
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q877 formula_1 [moderate]
+  vars:
+    question_id: 877
+    db_id: formula_1
+    question: For all the drivers who finished the game in race No. 872, who is the youngest?
+    evidence: race number refers to raceId; drivers who finished the race refers to time has value; the youngest is a driver where MAX(dob);
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q879 formula_1 [moderate]
+  vars:
+    question_id: 879
+    db_id: formula_1
+    question: For the driver who set the fastest lap speed, what is his nationality?
+    evidence: the fastest lap speed refers to (MAX) fastestLapSpeed;
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q884 formula_1 [moderate]
+  vars:
+    question_id: 884
+    db_id: formula_1
+    question: List the names of all races that occurred in the earliest recorded year and month.
+    evidence: earliest recorded year and month refers to year = year(min(date)) and month = month(min(date));
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q901 formula_1 [simple]
+  vars:
+    question_id: 901
+    db_id: formula_1
+    question: Name the races along with its circuit name and location for f1 races hosted in September 2005.
+    evidence: in September 2005 refers to MONTH(date) = 9 and YEAR(date) = 2005
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q930 formula_1 [simple]
+  vars:
+    question_id: 930
+    db_id: formula_1
+    question: In which Formula_1 race did Lewis Hamilton rank the highest?
+    evidence: rank the highest refers to min(rank); Lewis Hamilton refers to the full name of the driver; Full name of the driver refers to drivers.forename and drivers.surname;
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q931 formula_1 [moderate]
+  vars:
+    question_id: 931
+    db_id: formula_1
+    question: What was the fastest lap speed among all drivers in the 2009 Spanish Grand Prix?
+    evidence: the fastest lap speed among all refers to max(fastestLapSpeed); Spanish Grand Prix refers to races.name = 'Spanish Grand Prix';
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q940 formula_1 [moderate]
+  vars:
+    question_id: 940
+    db_id: formula_1
+    question: Among the drivers that finished the race in the 2008 Chinese Grand Prix, how many of them have participated in Formula_1 races?
+    evidence: COUNT(raceID) > 0 reveals that this driver participated in races; drivers who finished the race refers to time has value.
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q954 formula_1 [challenging]
+  vars:
+    question_id: 954
+    db_id: formula_1
+    question: Please calculate the race completion percentage of Japanese drivers from 2007 to 2009.
+    evidence: 'from 2007 to 2009 refers to year between 2007 and 2009; race completion refers to time is not null; percentage = Divide(COUNT(DriverID where time is not null and year between 2007 and 2009),Count (DriverID where year between 2007 and 2009))*100; '
+    difficulty: challenging
+  metadata:
+    db_id: formula_1
+    difficulty: challenging
+- description: q959 formula_1 [simple]
+  vars:
+    question_id: 959
+    db_id: formula_1
+    question: What is the fastest lap number of the champion in 2009?
+    evidence: 'in 2009 refers to year = 2009; Only the time of the champion shows in the format of "hour: minutes: seconds.millionsecond"'
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q967 formula_1 [simple]
+  vars:
+    question_id: 967
+    db_id: formula_1
+    question: State code numbers of top 3 yougest drivers. How many Netherlandic drivers among them?
+    evidence: youngest driver refers to Max (year(dob)); Netherlandic and Dutch refer to the same country
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q972 formula_1 [moderate]
+  vars:
+    question_id: 972
+    db_id: formula_1
+    question: Which drivers who were born in 1971 and has the fastest lap time on the race? Give id and code of these drivers.
+    evidence: born in 1971 refers to year(dob) = 1971; has the fastest lap time refers to fastestLapTime has values
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q988 formula_1 [challenging]
+  vars:
+    question_id: 988
+    db_id: formula_1
+    question: List down top 3 German drivers who has the shortest average pit stop duration and were born between 1980-1985.
+    evidence: Full name of the driver refers to drivers.forename and drivers.surname; born between 1980-1985 refers to 1980<= year(dob) <=1985; Average pitstop duration refers to Divide(SUM(duration),COUNT(duration)); shortest average refers to Min(avg(duration));
+    difficulty: challenging
+  metadata:
+    db_id: formula_1
+    difficulty: challenging
+- description: q990 formula_1 [challenging]
+  vars:
+    question_id: 990
+    db_id: formula_1
+    question: What is the constructor reference name of the champion in the 2009 Singapore Grand Prix? Please give its website.
+    evidence: 'the time of the champion shows in the format of "minutes: seconds.millionsecond" in which Max(time); constructor reference name refers to constructorRef; website refers to url'
+    difficulty: challenging
+  metadata:
+    db_id: formula_1
+    difficulty: challenging
+- description: q994 formula_1 [challenging]
+  vars:
+    question_id: 994
+    db_id: formula_1
+    question: Which constructor scored most points from Monaco Grand Prix between 1980 and 2010? List the score, name and nationality of this team.
+    evidence: Monaco Grand Priz refers to the race; race in year between 1980 and 2010
+    difficulty: challenging
+  metadata:
+    db_id: formula_1
+    difficulty: challenging
+- description: q1312 student_club [simple]
+  vars:
+    question_id: 1312
+    db_id: student_club
+    question: What's Angela Sanders's major?
+    evidence: Angela Sanders is the full name; full name refers to first_name, last_name; major refers to major_name.
+    difficulty: simple
+  metadata:
+    db_id: student_club
+    difficulty: simple
+- description: q1317 student_club [moderate]
+  vars:
+    question_id: 1317
+    db_id: student_club
+    question: Among the students from the Student_Club who attended the event "Women's Soccer", how many of them want a T-shirt that's in medium size?
+    evidence: Women's Soccer is an event name; T-shirt that is in medium size refers to t_shirt_size = 'Medium'
+    difficulty: moderate
+  metadata:
+    db_id: student_club
+    difficulty: moderate
+- description: q1331 student_club [simple]
+  vars:
+    question_id: 1331
+    db_id: student_club
+    question: What is the amount of the funds that the Vice President received?
+    evidence: '''Vice President'' is a position of Student Club; funds received refers to amount.'
+    difficulty: simple
+  metadata:
+    db_id: student_club
+    difficulty: simple
+- description: q1340 student_club [moderate]
+  vars:
+    question_id: 1340
+    db_id: student_club
+    question: Calculate the difference of the total amount spent in all events by the Student_Club in year 2019 and 2020.
+    evidence: The first 4 strings of the event_date values in the event table can represent year; The difference of the total amount spent = SUBTRACT(spent where YEAR(event_date) = 2019, spent where YEAR(event_date) = 2020)
+    difficulty: moderate
+  metadata:
+    db_id: student_club
+    difficulty: moderate
+- description: q1350 student_club [moderate]
+  vars:
+    question_id: 1350
+    db_id: student_club
+    question: What is the status of the event which bought "Post Cards, Posters" on 2019/8/20?
+    evidence: '''Post Cards, Posters'' is an expense description; on 2019/8/20 refers to expense_date = ''2019-8-20''; status of event refers to event_status'
+    difficulty: moderate
+  metadata:
+    db_id: student_club
+    difficulty: moderate
+- description: q1351 student_club [simple]
+  vars:
+    question_id: 1351
+    db_id: student_club
+    question: What was Brent Thomason's major?
+    evidence: Brent Thomason is the full name; full name refers to first_name, last_name; major refers to major_name
+    difficulty: simple
+  metadata:
+    db_id: student_club
+    difficulty: simple
+- description: q1357 student_club [simple]
+  vars:
+    question_id: 1357
+    db_id: student_club
+    question: State the date Connor Hilton paid his/her dues.
+    evidence: Connor Hilton is the full name; full name refers to first_name, last_name; date the dues was paid refers to date_received where source = 'Dues';
+    difficulty: simple
+  metadata:
+    db_id: student_club
+    difficulty: simple
+- description: q1394 student_club [simple]
+  vars:
+    question_id: 1394
+    db_id: student_club
+    question: How many members of the Student_Club have major in 'Physics Teaching'?
+    evidence: '''Physics Teaching'' is the major_name;'
+    difficulty: simple
+  metadata:
+    db_id: student_club
+    difficulty: simple
+- description: q1398 student_club [moderate]
+  vars:
+    question_id: 1398
+    db_id: student_club
+    question: Name the event with the highest amount spent on advertisement.
+    evidence: Name of event refers to event_name; highest amount spent on advertisement refers to MAX(spent) where category = 'Advertisement'
+    difficulty: moderate
+  metadata:
+    db_id: student_club
+    difficulty: moderate
+- description: q1399 student_club [moderate]
+  vars:
+    question_id: 1399
+    db_id: student_club
+    question: Did Maya Mclean attend the 'Women's Soccer' event?
+    evidence: Maya Mclean is the full name; full name refers to first_name, last_name; 'Women's Soccer' is an event_name
+    difficulty: moderate
+  metadata:
+    db_id: student_club
+    difficulty: moderate
+- description: q1422 student_club [simple]
+  vars:
+    question_id: 1422
+    db_id: student_club
+    question: State the category of events were held at MU 215.
+    evidence: '''MU 215'' is the location of event; '
+    difficulty: simple
+  metadata:
+    db_id: student_club
+    difficulty: simple
+- description: q1427 student_club [moderate]
+  vars:
+    question_id: 1427
+    db_id: student_club
+    question: What are the budget category of the events located at MU 215 and a guest speaker type with a 0 budget spent?
+    evidence: 'budget category refers to category; events located at refers to location; type = ''Guest Speaker''; 0 budget spent refers to spent = 0; '
+    difficulty: moderate
+  metadata:
+    db_id: student_club
+    difficulty: moderate
+- description: q1432 student_club [moderate]
+  vars:
+    question_id: 1432
+    db_id: student_club
+    question: Among the members with t-shirt size of medium, what is the percentage of the amount 50 received by the Student_Club?
+    evidence: t_shirt_size = 'Medium' where position = 'Member'; percentage = DIVIDE(COUNT(amount = 50), COUNT(member_id)) * 100
+    difficulty: moderate
+  metadata:
+    db_id: student_club
+    difficulty: moderate
+- description: q1460 student_club [challenging]
+  vars:
+    question_id: 1460
+    db_id: student_club
+    question: Write the full name of the member who spent money for water, veggie tray and supplies and include the cost of it.
+    evidence: full name refers to first_name, last name; spent money for refers expense description; expense_description = 'Water, Veggie tray, supplies'
+    difficulty: challenging
+  metadata:
+    db_id: student_club
+    difficulty: challenging
+- description: q1464 student_club [challenging]
+  vars:
+    question_id: 1464
+    db_id: student_club
+    question: Write the full names of students who received funds on the date of 9/9/2019 and include the amount received.
+    evidence: full name refers to first_name, last_name, amount of funds received refers to amount, received funds on date refers to date_received
+    difficulty: challenging
+  metadata:
+    db_id: student_club
+    difficulty: challenging
+- description: q719 superhero [moderate]
+  vars:
+    question_id: 719
+    db_id: superhero
+    question: Among the superheroes with the super power of "Super Strength", how many of them have a height of over 200cm?
+    evidence: super power of "Super Strength" refers to power_name = 'Super Strength'; a height of over 200cm refers to height_cm > 200
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q724 superhero [challenging]
+  vars:
+    question_id: 724
+    db_id: superhero
+    question: Please list the superhero names of all the superheroes that have blue eyes and blond hair.
+    evidence: blue eyes refers to colour = 'Blue' and eye_colour_id = colour.id; blond hair refers to colour = 'Blond' and hair_colour_id = colour.id; super power of "Agility" refers to power_name = 'Agility'
+    difficulty: challenging
+  metadata:
+    db_id: superhero
+    difficulty: challenging
+- description: q740 superhero [moderate]
+  vars:
+    question_id: 740
+    db_id: superhero
+    question: How many female superheroes have a strength value of 100?
+    evidence: female refers to gender = 'Female'; strength value of 100 refers to attribute_name = 'Strength' AND attribute_value = 100
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q745 superhero [simple]
+  vars:
+    question_id: 745
+    db_id: superhero
+    question: Give the publisher ID of Star Trek.
+    evidence: Star Trek is the publisher_name;
+    difficulty: simple
+  metadata:
+    db_id: superhero
+    difficulty: simple
+- description: q750 superhero [simple]
+  vars:
+    question_id: 750
+    db_id: superhero
+    question: What is the average weight of all female superheroes?
+    evidence: female refers to gender = 'Female'; average weight refers to AVG(weight_kg)
+    difficulty: simple
+  metadata:
+    db_id: superhero
+    difficulty: simple
+- description: q761 superhero [moderate]
+  vars:
+    question_id: 761
+    db_id: superhero
+    question: Among the male superheroes, list the super hero names of superheroes with weight greater than the 79% average weight of all superheroes.
+    evidence: super hero names refers to superhero_name;male superheros refers to gender = 'Male';Calculation = weight_kg > MULTIPLY(AVG(weight_kg), 0.79)
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q772 superhero [challenging]
+  vars:
+    question_id: 772
+    db_id: superhero
+    question: List the eyes, hair and skin colour of all female superheroes published by Dark Horse Comics.
+    evidence: eyes refers to eye_colour_id; hair refers to hair_colour_id; skin colour refers to skin_colour_id; female superheroes refers to gender = 'Female'; published by Dark Horse Comics refers to publisher_name = 'Dark Horse Comics';
+    difficulty: challenging
+  metadata:
+    db_id: superhero
+    difficulty: challenging
+- description: q773 superhero [challenging]
+  vars:
+    question_id: 773
+    db_id: superhero
+    question: Which superhero has the same eyes, hair and skin colour? Indicate the publisher of the superhero.
+    evidence: which superhero refers to superhero_name; the same eyes, hair and skin colour refers to hair_colour_id = skin_colour_id AND hair_colour_id = eye_colour_id; publisher refers to publisher_name;
+    difficulty: challenging
+  metadata:
+    db_id: superhero
+    difficulty: challenging
+- description: q775 superhero [challenging]
+  vars:
+    question_id: 775
+    db_id: superhero
+    question: What is the percentage of blue female superheroes among all female superheroes?
+    evidence: percentage = MULTIPLY(DIVIDE(SUM(colour = 'Blue' WHERE gender = 'Female'), COUNT(gender = 'Female')), 100); blue refers to the color = 'Blue' WHERE skin_colour_id = colour.id; female refers to gender = 'Female';
+    difficulty: challenging
+  metadata:
+    db_id: superhero
+    difficulty: challenging
+- description: q786 superhero [moderate]
+  vars:
+    question_id: 786
+    db_id: superhero
+    question: How many heroes have the highest attribute value in strength?
+    evidence: highest attribute value in strength refers to MAX(attribute_value) WHERE attribute_name = 'Strength';
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q791 superhero [simple]
+  vars:
+    question_id: 791
+    db_id: superhero
+    question: Calculate the average height for all superhero.
+    evidence: average = DIVIDE(SUM(height_cm), COUNT(all heros));
+    difficulty: simple
+  metadata:
+    db_id: superhero
+    difficulty: simple
+- description: q792 superhero [simple]
+  vars:
+    question_id: 792
+    db_id: superhero
+    question: What is Abomination's superpower?
+    evidence: Abomination refers to superhero_name = 'Abomination'; superpower refers to power_name;
+    difficulty: simple
+  metadata:
+    db_id: superhero
+    difficulty: simple
+- description: q797 superhero [moderate]
+  vars:
+    question_id: 797
+    db_id: superhero
+    question: Which superheroes have blue eyes with brown hair?
+    evidence: which superheroes refers to superhero_name; blue eyes refers to color = 'Blue' and color.id = eye_colour_id; brown hair refers to color = 'Brown' and color.id = hair_colour_id;
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q800 superhero [moderate]
+  vars:
+    question_id: 800
+    db_id: superhero
+    question: Calculate the percentage of superheroes with blue eyes.
+    evidence: percentage = MULTIPLY(DIVIDE(SUM(superhero_name WHERE color = 'Blue'), COUNT(superhero_name)), 100.0); blue eyes refers to color = 'Blue' and color.id =  eye_colour_id = 7;
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q824 superhero [moderate]
+  vars:
+    question_id: 824
+    db_id: superhero
+    question: Identify superheroes who can control wind and list their names in alphabetical order.
+    evidence: superheroes refers to superhero_name; can control wind refers to power_name = 'Wind Control';
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q825 superhero [moderate]
+  vars:
+    question_id: 825
+    db_id: superhero
+    question: Identify the gender of the superhero who has the ability of Phoenix Force.
+    evidence: ability of Phoenix Force refers to power_name = 'Phoenix Force';
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q1157 thrombosis_prediction [simple]
+  vars:
+    question_id: 1157
+    db_id: thrombosis_prediction
+    question: For patients with severe degree of thrombosis, list their ID, sex and disease the patient is diagnosed with.
+    evidence: severe degree of thrombosis refers to thrombosis = 2; disease refers to diagnosis;
+    difficulty: simple
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: simple
+- description: q1162 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1162
+    db_id: thrombosis_prediction
+    question: How many female patients who came at the hospital in 1997 was immediately followed at the outpatient clinic?
+    evidence: female refers to sex = 'F'; came at the hospital in 1997 refers to year(Description) = '1997'; immediately followed at the outpatient clinic refers to Admission = '-'
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1164 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1164
+    db_id: thrombosis_prediction
+    question: How many of the patients with the most serious thrombosis cases examined in 1997 are women?
+    evidence: the most serious thrombosis refers to Thrombosis = '1' (the most severe one); women refers to sex = 'F'
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1168 thrombosis_prediction [challenging]
+  vars:
+    question_id: 1168
+    db_id: thrombosis_prediction
+    question: The oldest SJS patient's medical laboratory work was completed on what date, and what age was the patient when they initially arrived at the hospital?
+    evidence: The larger the birthday value, the younger the person is, and vice versa; 'SJS' refers to diagnosis; (SUBTRACT(year(`First Date`)), year(Birthday)); age of the patients when they initially arrived at the hospital refers to year(Birthday)
+    difficulty: challenging
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: challenging
+- description: q1171 thrombosis_prediction [challenging]
+  vars:
+    question_id: 1171
+    db_id: thrombosis_prediction
+    question: How many underage patients were examined during the course of the three-year period from 1990 to 1993?
+    evidence: underage patients refers to year(Birthday) < 18; three-year period from 1990 to 1993 refers to year(`Examination Date`) between '1990' and '1993'
+    difficulty: challenging
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: challenging
+- description: q1185 thrombosis_prediction [challenging]
+  vars:
+    question_id: 1185
+    db_id: thrombosis_prediction
+    question: For the patient who was born on 1959/2/18, what is the decrease rate for his/her total cholesterol from November to December in 1981?
+    evidence: born on 1959/2/18 refers to Birthday = '1959-02-18'; calculation = DIVISION(SUBTRACT(SUM(Birthday = '1959-02-18' and Date like '1981-11-%' THEN `T-CHO`), SUM(Birthday = '1959-02-18' and Date like '1981-12-%' THEN `T-CHO`)), SUM(Birthday = '1959-02-18' and Date like '1981-12-%' THEN `T-CHO`))
+    difficulty: challenging
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: challenging
+- description: q1187 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1187
+    db_id: thrombosis_prediction
+    question: How many patients who were examined between 1987/7/6 and 1996/1/31 had a GPT level greater than 30 and an ALB level less than 4? List them by their ID.
+    evidence: examined between 1987/7/6 and 1996/1/31 refers to Date BETWEEN '1987-07-06' AND '1996-01-31'; GPT level greater than 30 refers to GPT > 30; ALB level less than 4 ALB < 4
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1189 thrombosis_prediction [challenging]
+  vars:
+    question_id: 1189
+    db_id: thrombosis_prediction
+    question: What number of patients with a degree of thrombosis level 2 and ANA pattern of only S, have a level of anti-Cardiolip in antibody (IgM) 20% higher than average?
+    evidence: thrombosis level 2 refers to Thrombosis = 2; ANA pattern of only S refers to ANA = 'S'; average anti-Cardiolip in antibody (IgM) refers to AVG(`aCL IgM`); calculation = MULTIPLY(AVG + AVG, 0.2)
+    difficulty: challenging
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: challenging
+- description: q1195 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1195
+    db_id: thrombosis_prediction
+    question: What is the average blood albumin level for female patients with a PLT greater than 400 who have been diagnosed with SLE?
+    evidence: average blood albumin level refers to AVG(ALB); female refers to SEX = 'F'; PLT greater than 400 refers to PLT > 400; diagnosed with SLE refers to Diagnosis= 'SLE'
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1209 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1209
+    db_id: thrombosis_prediction
+    question: Please provide the diagnosis of patients with ALT glutamic pylvic transaminase beyond the normal range by ascending order of their date of birth.
+    evidence: 'ALT glutamic pylvic transaminase beyond the normal range refers to GPT > 60; The larger the birthday value, the younger the person is, and vice versa; '
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1220 thrombosis_prediction [simple]
+  vars:
+    question_id: 1220
+    db_id: thrombosis_prediction
+    question: Provide all ID, sex and birthday of patients whose urea nitrogen (UN) just within the borderline of passing?
+    evidence: 'urea nitrogen (UN) just within the borderline of passing refers to UN = 29; '
+    difficulty: simple
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: simple
+- description: q1252 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1252
+    db_id: thrombosis_prediction
+    question: Among the patients with a normal Ig G level, how many of them have symptoms?
+    evidence: normal Ig G level refers to IGG > 900 and IGG < 2000; have symptoms refers to Symptoms IS NOT NULL;
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1254 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1254
+    db_id: thrombosis_prediction
+    question: How many patients with a normal Ig A level came to the hospital after 1990/1/1?
+    evidence: normal Ig A level refers to IGA > 80 AND IGA < 500; came to the hospital after 1990/1/1 refers to YEAR(`First Date`) > = 1990;
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1265 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1265
+    db_id: thrombosis_prediction
+    question: How many patients have a normal level of anti-ribonuclear protein and have been admitted to the hospital?
+    evidence: normal level of anti-ribonuclear protein refers to RNP = '-', '+-'; And'-' means 'negative'; '+-' refers to '0'; admitted to the hospital refers to Admission = '+'; Should consider DISTINCT in the final result;
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1302 thrombosis_prediction [challenging]
+  vars:
+    question_id: 1302
+    db_id: thrombosis_prediction
+    question: For the patients with a normal range of creatinine phosphokinase, how many of them have a positive measure of degree of coagulation?
+    evidence: normal range of creatinine phosphokinase refers to CPK < 250; positive measure of degree of coagulation refers to KCT = '+' or RVVT = '+' or LAC = '+' ;
+    difficulty: challenging
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: challenging
+- description: q198 toxicology [challenging]
+  vars:
+    question_id: 198
+    db_id: toxicology
+    question: On average how many carcinogenic molecules are single bonded?
+    evidence: carcinogenic molecules refers to label = '+'; single-bonded refers to bond_type = '-'; average = DIVIDE(SUM(bond_type = '-'), COUNT(atom_id))
+    difficulty: challenging
+  metadata:
+    db_id: toxicology
+    difficulty: challenging
+- description: q207 toxicology [challenging]
+  vars:
+    question_id: 207
+    db_id: toxicology
+    question: What elements are in a double type bond?
+    evidence: double type bond refers to bond_type = '=';
+    difficulty: challenging
+  metadata:
+    db_id: toxicology
+    difficulty: challenging
+- description: q212 toxicology [challenging]
+  vars:
+    question_id: 212
+    db_id: toxicology
+    question: Which element is the least numerous in non-carcinogenic molecules?
+    evidence: label = '-' means molecules are non-carcinogenic; least numerous refers to MIN(COUNT(element));
+    difficulty: challenging
+  metadata:
+    db_id: toxicology
+    difficulty: challenging
+- description: q226 toxicology [moderate]
+  vars:
+    question_id: 226
+    db_id: toxicology
+    question: What is the percentage of double bonds in the molecule TR008? Please provide your answer as a percentage with five decimal places.
+    evidence: double bond refers to bond_type = '='; TR008 is the molecule id; percentage = DIVIDE(SUM(bond_type = '='), COUNT(bond_id)) as percent where molecule_id = 'TR008'
+    difficulty: moderate
+  metadata:
+    db_id: toxicology
+    difficulty: moderate
+- description: q231 toxicology [challenging]
+  vars:
+    question_id: 231
+    db_id: toxicology
+    question: Which bond type accounted for the majority of the bonds found in molecule TR010 and state whether or not this molecule is carcinogenic?
+    evidence: 'TR010 is the molecule id; majority of the bond found refers to MAX(COUNT(bond_type)); '
+    difficulty: challenging
+  metadata:
+    db_id: toxicology
+    difficulty: challenging
+- description: q232 toxicology [moderate]
+  vars:
+    question_id: 232
+    db_id: toxicology
+    question: Please list top three molecules that have single bonds between two atoms and are not carcinogenic in alphabetical order.
+    evidence: label = '-' means molecules are not carcinogenic; single type bond refers to bond_type = '-'; list top three molecules refers to return molecule_id and order by molecule_id;
+    difficulty: moderate
+  metadata:
+    db_id: toxicology
+    difficulty: moderate
+- description: q234 toxicology [moderate]
+  vars:
+    question_id: 234
+    db_id: toxicology
+    question: How many bonds which involved atom 12 does molecule TR009 have?
+    evidence: TR009 is the molecule id;  involved atom 12 refers to atom_id = 'TR009_12' or atom_id2 = 'TR009_12'
+    difficulty: moderate
+  metadata:
+    db_id: toxicology
+    difficulty: moderate
+- description: q239 toxicology [simple]
+  vars:
+    question_id: 239
+    db_id: toxicology
+    question: How many connections does the atom 19 have?
+    evidence: connections refers to bond_id; atom 19 refers to atom_id like 'TR%_19';
+    difficulty: simple
+  metadata:
+    db_id: toxicology
+    difficulty: simple
+- description: q240 toxicology [challenging]
+  vars:
+    question_id: 240
+    db_id: toxicology
+    question: List all the elements of the toxicology of the molecule "TR004".
+    evidence: TR004 is the molecule id;
+    difficulty: challenging
+  metadata:
+    db_id: toxicology
+    difficulty: challenging
+- description: q243 toxicology [moderate]
+  vars:
+    question_id: 243
+    db_id: toxicology
+    question: What are the bonds that have phosphorus and nitrogen as their atom elements?
+    evidence: have phosphorus as atom elements refers to element = 'p'; have nitrogen as atom elements refers to element = 'n'
+    difficulty: moderate
+  metadata:
+    db_id: toxicology
+    difficulty: moderate
+- description: q248 toxicology [simple]
+  vars:
+    question_id: 248
+    db_id: toxicology
+    question: What are the atoms of the triple bond with the molecule "TR041"?
+    evidence: TR041 is the molecule id; triple bond refers to bond_type = '#';
+    difficulty: simple
+  metadata:
+    db_id: toxicology
+    difficulty: simple
+- description: q255 toxicology [moderate]
+  vars:
+    question_id: 255
+    db_id: toxicology
+    question: What proportion of single bonds are carcinogenic? Please provide your answer as a percentage with five decimal places.
+    evidence: single bond refers to bond_type = '-'; label = '+' mean molecules are carcinogenic; proportion = DIVIDE(SUM(label = '+') * 100, COUNT(bond_id)) where bond_type = '-'
+    difficulty: moderate
+  metadata:
+    db_id: toxicology
+    difficulty: moderate

@@ -1,0 +1,300 @@
+- description: q39 california_schools [simple]
+  vars:
+    question_id: 39
+    db_id: california_schools
+    question: What is the average number of test takers from Fresno schools that opened between 1/1/1980 and 12/31/1980?
+    evidence: between 1/1/1980 and 12/31/1980 means the year = 1980
+    difficulty: simple
+  metadata:
+    db_id: california_schools
+    difficulty: simple
+- description: q85 california_schools [moderate]
+  vars:
+    question_id: 85
+    db_id: california_schools
+    question: What is the Percent (%) Eligible Free (K-12) in the school administered by an administrator whose first name is Alusine. List the district code of the school.
+    evidence: Percent (%) Eligible Free (K-12) = `Free Meal Count (K-12)` / `Enrollment (K-12)` * 100%
+    difficulty: moderate
+  metadata:
+    db_id: california_schools
+    difficulty: moderate
+- description: q379 card_games [simple]
+  vars:
+    question_id: 379
+    db_id: card_games
+    question: What are the cards belong to duel deck a? List the ID.
+    evidence: duel deck a refers to duelDeck = a;
+    difficulty: simple
+  metadata:
+    db_id: card_games
+    difficulty: simple
+- description: q486 card_games [moderate]
+  vars:
+    question_id: 486
+    db_id: card_games
+    question: What is the percentage of the cards with a converted mana cost of 7 in the set Coldsnap?
+    evidence: converted mana cost of 7 refers to convertedManaCost = 7; card set Coldsnap refers to name = 'Coldsnap'; percentage = DIVIDE(SUM(convertedManaCost = 7), SUM(convertedManaCost))*100
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q522 card_games [moderate]
+  vars:
+    question_id: 522
+    db_id: card_games
+    question: Which cards are ranked 1st on EDHRec? List all of the cards name and its banned play format.
+    evidence: ranked 1st on EDHRec refers to edhrecRank = 1; banned refers to status = 'Banned'; play format refers to format; cards name refers to name
+    difficulty: moderate
+  metadata:
+    db_id: card_games
+    difficulty: moderate
+- description: q537 codebase_community [simple]
+  vars:
+    question_id: 537
+    db_id: codebase_community
+    question: How many posts does the user csgillespie own?
+    evidence: '"csgillespie" is the DisplayName of user'
+    difficulty: simple
+  metadata:
+    db_id: codebase_community
+    difficulty: simple
+- description: q578 codebase_community [moderate]
+  vars:
+    question_id: 578
+    db_id: codebase_community
+    question: Which user made a post titled 'Understanding what Dassault iSight is doing?' and how much is the reputation of the user?
+    evidence: '"Understanding what Dassault iSight is doing?" is the Title of post; user refers to DisplayName;'
+    difficulty: moderate
+  metadata:
+    db_id: codebase_community
+    difficulty: moderate
+- description: q1501 debit_card_specializing [moderate]
+  vars:
+    question_id: 1501
+    db_id: debit_card_specializing
+    question: Please list the countries of the gas stations with transactions taken place in June, 2013.
+    evidence: June 2013 refers to '201306'; The first 4 strings of the Date values in the yearmonth table can represent year; The 5th and 6th string of the date can refer to month;
+    difficulty: moderate
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: moderate
+- description: q1507 debit_card_specializing [simple]
+  vars:
+    question_id: 1507
+    db_id: debit_card_specializing
+    question: Please list the disparate time of the transactions taken place in the gas stations from chain no. 11.
+    evidence: ''
+    difficulty: simple
+  metadata:
+    db_id: debit_card_specializing
+    difficulty: simple
+- description: q1037 european_football_2 [challenging]
+  vars:
+    question_id: 1037
+    db_id: european_football_2
+    question: Calculate the percentage of players who prefer left foot, who were born between 1987 and 1992.
+    evidence: players who prefer left foot refers to preferred_foot = 'left'; percentage of players who prefer left foot = DIVIDE(MULTIPLY((SUM(preferred_foot = 'left'), 100)), COUNT(player_fifa_api_id)); born between 1987 and 1992 refers to YEAR(birthday) BETWEEN '1987' AND '1992';
+    difficulty: challenging
+  metadata:
+    db_id: european_football_2
+    difficulty: challenging
+- description: q1102 european_football_2 [moderate]
+  vars:
+    question_id: 1102
+    db_id: european_football_2
+    question: For the players who had a 77 points overall rating on 2016/6/23, who was the oldest? Give the name of the player.
+    evidence: 77 points overall rating refers to overall_rating = 77; on 2016/6/23 refers to date LIKE '2016-06-23%'; The larger the birthday value, the younger the person is, and vice versa;
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q1133 european_football_2 [simple]
+  vars:
+    question_id: 1133
+    db_id: european_football_2
+    question: How many football players born after the 1990s have the first name "Aaron"?
+    evidence: first name "Aaron" refers to player_name LIKE 'Aaron%'; born after the 1990s refers to birthday > '1990'
+    difficulty: simple
+  metadata:
+    db_id: european_football_2
+    difficulty: simple
+- description: q1135 european_football_2 [moderate]
+  vars:
+    question_id: 1135
+    db_id: european_football_2
+    question: Please provide top four football players' IDs who are among the lowest potential players and prefer to use the right foot when attacking.
+    evidence: lowest potential players refers to MIN(potential); prefer to use the right foot when attacking refers to preferred_foot = 'right'
+    difficulty: moderate
+  metadata:
+    db_id: european_football_2
+    difficulty: moderate
+- description: q145 financial [moderate]
+  vars:
+    question_id: 145
+    db_id: financial
+    question: Who are the account holder identification numbers whose who have transactions on the credit card with the amount is less than the average, in 1998?
+    evidence: Operation = 'VYBER KARTOU' refers to credit card withdrawal
+    difficulty: moderate
+  metadata:
+    db_id: financial
+    difficulty: moderate
+- description: q880 formula_1 [challenging]
+  vars:
+    question_id: 880
+    db_id: formula_1
+    question: Paul di Resta was in the No. 853 race, what percent faster did he finish in the 853rd race than the next race for the fastest lap speed?
+    evidence: Paul di Resta refers to the full name of the driver; Full name of the driver refers to drivers.forename ='Paul' and drivers.surname = 'di Resta'; race number refers to raceId; percentage = DIVIDE(SUBTRACT(fastestLapSpeed(raceId = 853), (fastestLapSpeed (raceId = 854)) * 100 , (fastestLapSpeed(raceId = 853))
+    difficulty: challenging
+  metadata:
+    db_id: formula_1
+    difficulty: challenging
+- description: q881 formula_1 [moderate]
+  vars:
+    question_id: 881
+    db_id: formula_1
+    question: For the drivers who took part in the race in 1983/7/16, what's their race completion rate?
+    evidence: DIVIDE(COUNT(driverid when time has value ), (COUNT(driverid )) as percentage; in 1983/7/16 refers to when date = '1983-07-16'
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q909 formula_1 [moderate]
+  vars:
+    question_id: 909
+    db_id: formula_1
+    question: Among all European Grand Prix races, what is the percentage of the races were hosted in Germany?
+    evidence: European Grand Prix races refers to races.name = 'European Grand Prix';percentage = divide(COUNT(races where country = Germany and name = 'Europearn Grand Prix'),COUNT(races where name = 'Europearn Grand Prix'))*100
+    difficulty: moderate
+  metadata:
+    db_id: formula_1
+    difficulty: moderate
+- description: q915 formula_1 [simple]
+  vars:
+    question_id: 915
+    db_id: formula_1
+    question: Which country is the oldest driver from?
+    evidence: date of birth refers to drivers.dob; The larger the birthday value, the younger the person is, and vice versa;
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q978 formula_1 [simple]
+  vars:
+    question_id: 978
+    db_id: formula_1
+    question: How many times the circuits were held in Austria? Please give their location and coordinates.
+    evidence: location coordinates refers to (lat,lng); Austria refers to country = 'Austria';
+    difficulty: simple
+  metadata:
+    db_id: formula_1
+    difficulty: simple
+- description: q1376 student_club [moderate]
+  vars:
+    question_id: 1376
+    db_id: student_club
+    question: Among all the closed events, which event has the highest spend-to-budget ratio?
+    evidence: closed events refers to event_name where status = 'Closed'; highest spend-to budget ratio refers to MAX(DIVIDE(spent, amount))
+    difficulty: moderate
+  metadata:
+    db_id: student_club
+    difficulty: moderate
+- description: q1389 student_club [simple]
+  vars:
+    question_id: 1389
+    db_id: student_club
+    question: Which event has the lowest cost?
+    evidence: event refers to event_name; lowest cost means MIN(cost)
+    difficulty: simple
+  metadata:
+    db_id: student_club
+    difficulty: simple
+- description: q717 superhero [simple]
+  vars:
+    question_id: 717
+    db_id: superhero
+    question: Please list all the superpowers of 3-D Man.
+    evidence: 3-D Man refers to superhero_name = '3-D Man'; superpowers refers to power_name
+    difficulty: simple
+  metadata:
+    db_id: superhero
+    difficulty: simple
+- description: q733 superhero [moderate]
+  vars:
+    question_id: 733
+    db_id: superhero
+    question: How many gold-eyed superheroes did Marvel Comics publish?
+    evidence: gold-eyed refers to colour = 'Gold' where eye_colour_id = colour.id; superheroes that Marvel Comics published refers to publisher_name = 'Marvel Comics'
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q758 superhero [moderate]
+  vars:
+    question_id: 758
+    db_id: superhero
+    question: Provide the hair colour of the human superhero who is 185 cm tall.
+    evidence: 185 cm tall refers to height_cm = 185; human superhero refers to race = 'human'; hair colour refers to colour where hair_colour_id = colour.id;
+    difficulty: moderate
+  metadata:
+    db_id: superhero
+    difficulty: moderate
+- description: q788 superhero [challenging]
+  vars:
+    question_id: 788
+    db_id: superhero
+    question: How many percent of female heroes were published by Marvel Comics?
+    evidence: percent = MULTIPLY(DIVIDE(SUM(gender = 'Female' WHERE publisher_name = 'Marvel Comics'), COUNT(publisher_name = 'Marvel Comics')), 100); female heroes refers to gender = 'Female'; Marvel Comics refers to publisher_name = 'Marvel Comics';
+    difficulty: challenging
+  metadata:
+    db_id: superhero
+    difficulty: challenging
+- description: q1205 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1205
+    db_id: thrombosis_prediction
+    question: Was the patient with the number 57266's uric acid within a normal range?
+    evidence: uric acid within a normal range refers to UA > 8.0 and SEX = 'M'OR UA > 6.5 and SEX = 'F'
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1208 thrombosis_prediction [moderate]
+  vars:
+    question_id: 1208
+    db_id: thrombosis_prediction
+    question: Provide IDs for male patients with ALT glutamic pylvic transaminase (GPT) that have history of ALT glutamic pylvic transaminase (GPT) exceed the normal range.
+    evidence: male refers to SEX = 'M'; ALT glutamic pylvic transaminase (GPT) exceed the normal range refers to GPT > = 60
+    difficulty: moderate
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: moderate
+- description: q1241 thrombosis_prediction [challenging]
+  vars:
+    question_id: 1241
+    db_id: thrombosis_prediction
+    question: For patients with abnormal platelet level, state the number of patients with lower than normal range. How is it compare to the number of patients with higher than normal range?
+    evidence: abnormal platelet level refers to PLT <= 100 or PLT >= 400; platelet level lower than normal range refers to PLT < 100; calculation = SUBTRACT(SUM(PLT < 100), SUM(PLT > 400)); platelet level higher than normal range refers to PLT > 400;
+    difficulty: challenging
+  metadata:
+    db_id: thrombosis_prediction
+    difficulty: challenging
+- description: q213 toxicology [moderate]
+  vars:
+    question_id: 213
+    db_id: toxicology
+    question: What type of bond is there between the atoms TR004_8 and TR004_20?
+    evidence: type of bond refers to bond_type; between the atoms TR004_8 and TR004_20 refers to atom_id = 'TR004_8' AND atom_id2 = 'TR004_20' OR another way around
+    difficulty: moderate
+  metadata:
+    db_id: toxicology
+    difficulty: moderate
+- description: q219 toxicology [challenging]
+  vars:
+    question_id: 219
+    db_id: toxicology
+    question: What is the percentage of carcinogenic molecules in triple type bonds?
+    evidence: label = '+' mean molecules are carcinogenic; triple bond refers to bond_type = '#'; percentage = DIVIDE(SUM(bond_type = '#') * 100, COUNT(bond_id)) as percent where label = '+'
+    difficulty: challenging
+  metadata:
+    db_id: toxicology
+    difficulty: challenging

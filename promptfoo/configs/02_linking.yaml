@@ -1,0 +1,34 @@
+# Experiment 02 — schema linking (paper Table 2), all on fused metadata.
+#   full schema (= C3, cache hits from experiment 01) vs LLM schema linking vs ORACLE linking.
+# C4-oracle uses the gold SQL's columns: an upper bound, never a deployable config.
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/02_linking.yaml --split dev
+description: "02 schema linking (paper Table 2): full schema vs LLM linking vs oracle, hints on/off"
+
+prompts:
+  - "{{question}}" # unused by the pipeline provider; it builds its own prompts from vars
+
+providers:
+  - id: file://../providers/pipeline.py
+    label: C3-fused
+    config: { metadata: fused, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C4-linked
+    config: { metadata: fused, hints: false, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C4-oracle
+    config: { metadata: fused, hints: false, linking: oracle }
+  - id: file://../providers/pipeline.py
+    label: C3-fused+hints
+    config: { metadata: fused, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C4-linked+hints
+    config: { metadata: fused, hints: true, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C4-oracle+hints
+    config: { metadata: fused, hints: true, linking: oracle }
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex

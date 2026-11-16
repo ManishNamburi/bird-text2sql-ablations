@@ -1,0 +1,11 @@
+{
+  "name": "bird-benchmark-promptfoo",
+  "private": true,
+  "description": "promptfoo harness for BIRD text-to-SQL ablations on a local LLM",
+  "engines": {
+    "node": ">=22.22"
+  },
+  "devDependencies": {
+    "promptfoo": "0.125.1"
+  }
+}

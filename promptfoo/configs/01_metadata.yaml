@@ -1,0 +1,39 @@
+# Experiment 01 — metadata ladder (paper Table 1), single LLM call per question.
+# Each provider is one ablation config; they differ ONLY in the flags shown.
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/01_metadata.yaml --split dev
+description: "01 metadata ladder (paper Table 1): DDL / BIRD / profiling / fused, hints on/off"
+
+prompts:
+  - "{{question}}" # unused by the pipeline provider; it builds its own prompts from vars
+
+providers:
+  - id: file://../providers/pipeline.py
+    label: C0-ddl
+    config: { metadata: none, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C1-bird
+    config: { metadata: bird, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C2-profile
+    config: { metadata: profile, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C3-fused
+    config: { metadata: fused, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C0-ddl+hints
+    config: { metadata: none, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C1-bird+hints
+    config: { metadata: bird, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C2-profile+hints
+    config: { metadata: profile, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C3-fused+hints
+    config: { metadata: fused, hints: true }
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex
