@@ -136,7 +136,7 @@ From [tasks/lessons.md](tasks/lessons.md), which I kept as the project ran:
 
 ## License and data
 
-The code is MIT ([LICENSE](LICENSE)). BIRD MiniDev is © its authors under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The files here that carry BIRD questions and hints (`promptfoo/tests/*.yaml`) stay under that license. The databases, the paper PDF and model outputs aren't redistributed. `make data` downloads MiniDev from BIRD's official mirror.
+The code is MIT ([LICENSE](LICENSE)); the MIT license covers this project's own code and docs only. BIRD MiniDev is © its authors under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). The files here that carry BIRD questions and hints (`promptfoo/tests/*.yaml`) stay under that license. The databases, the paper PDF and model outputs aren't redistributed. `make data` downloads MiniDev from BIRD's official mirror.
 
 ## Citations
 

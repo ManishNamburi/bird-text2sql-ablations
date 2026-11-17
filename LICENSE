@@ -20,9 +20,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
----
-
-This license covers the code and documentation written for this project. Files that
-contain BIRD benchmark content (questions, evidence/hints, schema text), for example
-promptfoo/tests/*.yaml, are derived from BIRD MiniDev and remain under BIRD's data
-license, CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/).
