@@ -25,6 +25,7 @@ from pathlib import Path
 
 import yaml
 
+from birdeval.llm import DEFAULT_MODEL, OLLAMA_URL
 from birdeval.report import load_results, summarize
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,6 +57,26 @@ def promptfoo(args: list[str], extra_env: dict | None = None) -> None:
     if proc.returncode not in (0, 100):  # promptfoo exits 100 when some tests fail: expected here
         print(proc.stdout[-3000:], proc.stderr[-3000:], file=sys.stderr)
         raise SystemExit(f"promptfoo failed with exit code {proc.returncode}")
+
+
+def provenance(cfg: dict, raw: Path) -> str:
+    """Project rule: every results file records model tag + digest, Ollama and promptfoo versions."""
+    import json
+
+    import requests
+
+    models = sorted({(p.get("config") or {}).get("model", DEFAULT_MODEL) for p in cfg["providers"]})
+    tags = {m["name"]: m for m in requests.get(f"{OLLAMA_URL}/api/tags", timeout=10).json()["models"]}
+    ollama = requests.get(f"{OLLAMA_URL}/api/version", timeout=10).json()["version"]
+    meta = json.loads(raw.read_text()).get("metadata", {})
+    def quant(m: str) -> str:
+        d = requests.post(f"{OLLAMA_URL}/api/show", json={"model": m}, timeout=10).json().get("details", {})
+        return f"{d.get('parameter_size')}, {d.get('quantization_level')}, {d.get('runner') or d.get('format')}"
+
+    lines = [f"- `{m}`: digest `{tags[m]['digest'][:12]}` ({quant(m)}), pulled {tags[m]['modified_at'][:16]}"
+             for m in models]
+    return ("\n**Provenance:** " + f"Ollama {ollama}, promptfoo {meta.get('promptfooVersion')}, "
+            f"Node {meta.get('nodeVersion')}, exported {meta.get('exportedAt', '')[:16]}Z.\n" + "\n".join(lines) + "\n")
 
 
 def main() -> None:
@@ -97,7 +118,7 @@ def main() -> None:
     summary = summarize(df, order=labels)
     md = ROOT / "results" / f"{a.config.stem}__{a.split}.md"
     md.write_text(f"# {cfg.get('description', a.config.stem)} — split `{a.split}`\n\n"
-                  + summary.to_markdown(index=False) + "\n")
+                  + summary.to_markdown(index=False) + "\n" + provenance(cfg, out))
     print(f"\n{summary.to_string(index=False)}\n\nwall time {(time.time() - t0) / 60:.1f} min -> {md.relative_to(ROOT)}")
 
 

@@ -42,7 +42,7 @@ Those are the gaps this project fills, along with the token cost of each step.
 
 | Decision | Proposal | Tradeoff |
 |---|---|---|
-| Model | **Decided:** `qwen3.5:9b` (6.6 GB, Q4_K_M, thinking off) as the main model, with `qwen2.5-coder:7b` (4.7 GB) rerunning the headline configs. | Qwen3.5-9B is newer and likely stronger, but about 40% slower and needs the Ollama upgrade. The coder 7B is code-specialized and fast. Running both shows whether the gains depend on model size. 14B models (9 GB) leave little room for an 8–16K context on 18 GB. Nemotron-3-nano-4B is small; nemotron-3.5-bolt is multimodal and 7.9 GB, so it is not a good fit. |
+| Model | **Decided:** `qwen3.5:9b` (served as 9.7B nvfp4 on MLX, 7.6 GB; digest d63f830f28d5; thinking off — see D1 correction) as the main model, with `qwen2.5-coder:7b` (4.7 GB) rerunning the headline configs. | Qwen3.5-9B is newer and likely stronger, but about 40% slower and needs the Ollama upgrade. The coder 7B is code-specialized and fast. Running both shows whether the gains depend on model size. 14B models (9 GB) leave little room for an 8–16K context on 18 GB. Nemotron-3-nano-4B is small; nemotron-3.5-bolt is multimodal and 7.9 GB, so it is not a good fit. |
 | Eval set | Stratified sample of **150** MiniDev questions (by database × difficulty, seed 42), plus a separate **30-question dev slice** for prompt iteration. Optionally all 500 for the 2–3 headline configs overnight. | 150 questions gives a ±8 pp 95% CI on a single accuracy. Paired McNemar tests catch smaller differences because both configs answer the same questions. The full 500 would take about 3× longer per config. |
 | Harness | promptfoo drives everything. One **custom Python provider** runs the pipeline, with flags per technique. One **custom Python assertion** executes predicted and gold SQL on SQLite and compares result sets (BIRD EX). | Built-in `ollama:` providers can't do multi-step pipelines (linking, voting). A single provider with flags guarantees that ablations differ only in their flags. |
 | Profiling LLM | The same local model writes the profile summaries, offline, once, cached to disk. | The paper used GPT-4o. A weaker summarizer may shrink the profiling gain. That is itself a finding to report. |
@@ -53,22 +53,22 @@ Those are the gaps this project fills, along with the token cost of each step.
 ## 3. Ablation ladder (each config changes exactly one thing)
 
 Metadata block (paper Table 1):
-- [ ] **C0 Baseline** — `CREATE TABLE` DDL only + question.
-- [ ] **C1 + BIRD SME metadata** — column descriptions and value descriptions from `database_description/*.csv`.
-- [ ] **C2 Profiling metadata** — LLM-summarized profiles instead of BIRD metadata.
-- [ ] **C3 Fused metadata** — BIRD + profiling.
+- [x] **C0 Baseline** — `CREATE TABLE` DDL only + question.
+- [x] **C1 + BIRD SME metadata** — column descriptions and value descriptions from `database_description/*.csv`.
+- [x] **C2 Profiling metadata** — LLM-summarized profiles instead of BIRD metadata.
+- [x] **C3 Fused metadata** — BIRD + profiling.
 
 Schema linking (paper Table 2):
-- [ ] **C4 C3 + schema linking** _(implemented + unit-tested 2026-11-16, D15; config `02_linking.yaml`; dev-verified 2026-11-16: 0 errors, link recall 0.93)_ — — simplified paper §3 algorithm: generate SQL under 3 schema variants (focused/minimal, full/minimal, focused/maximal), collect fields, and fix literals via the LSH value index with ≤1 retry.
-- [ ] **C4-oracle Perfect linking** _(implemented, D15)_ — — fields taken from the gold SQL. This is an upper bound, labelled as oracle.
+- [x] **C4 C3 + schema linking** _(implemented + unit-tested 2026-11-16, D15; config `02_linking.yaml`; dev-verified 2026-11-16: 0 errors, link recall 0.93)_ — — simplified paper §3 algorithm: generate SQL under all five paper schema variants (D15), collect fields, and fix literals via the LSH value index with ≤1 retry.
+- [x] **C4-oracle Perfect linking** _(implemented, D15)_ — — fields taken from the gold SQL. This is an upper bound, labelled as oracle.
 
 Paper §4 extras (not ablated in the paper):
-- [ ] **C5 C4 + few-shot** _(implemented 2026-11-16, D16)_: two pools: `train` (8 examples from 69 other DBs, the paper's setup) and `querylog` (8 examples from same-DB BIRD dev minus MiniDev). Config `03_fewshot.yaml`.
+- [x] **C5 C4 + few-shot** _(implemented 2026-11-16, D16)_: two pools: `train` (8 examples from 69 other DBs, the paper's setup) and `querylog` (8 examples from same-DB BIRD dev minus MiniDev). Config `03_fewshot.yaml`.
 - [x] **C6 C4 + 3 candidates + majority vote** _(done 2026-11-17, D19; parent changed from C5 to C4 after few-shot gave no gain)_ — vary seed and schema field order; vote on execution results (execution replaces the sqlglot validity check).
 - [x] **C7 C6 + SQL sanity checks and correction** _(done 2026-11-17, D20)_ — NULL ordering for ASC/MIN, subquery-vs-ORDER BY, string concatenation, with ≤3 retries (paper).
 
 Cross factor:
-- [ ] **Hints (evidence) on/off** for C0, C1, C3, C4, and C7 (the paper's main contrast).
+- [x] **Hints (evidence) on/off** for every config (C0–C7) (the paper's main contrast).
 
 Prompt trimming (on the best non-oracle config):
 - [ ] **T1** long profile → short profile.
@@ -91,9 +91,9 @@ Prompt trimming (on the best non-oracle config):
 - [x] Upgrade Ollama 0.5.7 → current 0.40.x (user approved 2026-11-16). The app was installed manually in `/Applications/Ollama.app`, so the options are the app's built-in updater or `brew install --cask ollama-app --force`. Re-verify `llama3.2` still loads afterwards.
 - [x] Node 22 via `brew install node@22` (keg-only, doesn't replace Node 20). Pin `promptfoo` in `package.json`.
 - [x] Python env via `uv` (`pyproject.toml`): sqlglot, datasketch, numpy, pandas, scipy/statsmodels, requests, matplotlib, pytest.
-- [x] `ollama pull qwen3.5:9b` (6.6 GB), `qwen2.5-coder:7b` (4.7 GB), and `nomic-embed-text` (0.27 GB).
+- [x] `ollama pull qwen3.5:9b` (7.6 GB as pulled, nvfp4), `qwen2.5-coder:7b` (4.7 GB), and `nomic-embed-text` (0.27 GB).
 - [x] Download `minidev.zip` (801 MB) from the official BIRD mirror to `data/raw/`, unzip, and verify 500 questions and 11 SQLite DBs.
-- [ ] Get BIRD dev questions for the few-shot pool (check whether minidev.zip already contains `dev.json`; otherwise download dev questions only).
+- [x] Get BIRD dev questions for the few-shot pool _(done: `make fewshot` downloads `dev_20251106.json` and the train set, D16)_ (check whether minidev.zip already contains `dev.json`; otherwise download dev questions only).
 - [x] Smoke test: one question end-to-end through Ollama, timing prefill vs generation.
 
 ### Phase 1 — Data and eval set
@@ -128,10 +128,10 @@ Prompt trimming (on the best non-oracle config):
 ### Phase 3 — promptfoo harness _(single-call parts pulled into Phase 1 on 2026-11-16)_
 - [x] `promptfoo/providers/pipeline.py`: config flags → pipeline; returns SQL plus token, latency, and call metadata.
 - [x] `promptfoo/asserts/ex_match.py`: EX metric plus `valid_sql`.
-- [ ] `promptfoo/configs/*.yaml`: one file per experiment group; tests generated from the subset JSON. _(01_metadata.yaml done; 02+ after Phase 2.)_
+- [x] `promptfoo/configs/*.yaml`: one file per experiment group (01–05, plus dev-only 03b); tests generated from the subset JSON.
 - [x] `scripts/run_ablation.py`: two-pass runner (per-config warm-up, then combined eval), with a summary table per run (D8).
 - [x] `src/birdeval/schema.py`: canonical renderer, DDL ± BIRD metadata, 36 tests (D10).
-- [ ] Iterate prompts **only on the 30-question dev slice**; freeze prompts before running on the 150.
+- [x] Iterate prompts **only on the 30-question dev slice**; freeze prompts before running on the 150.
 
 ### Phase 3b — promptfoo features (approved and done 2026-11-16, D18; verified on 02 dev: identical EX, 0 new LLM calls, prompt visible in viewer)
 - [x] Provider returns top-level `prompt` (actual final messages) and `latencyMs` (original summed latency) so the viewer shows real prompts and true timings.
@@ -201,13 +201,57 @@ Paper §4: three candidates, diversified by "changing the LLM randomization seed
 - **Framing fix (03b, dev only, D17):** a hand-off line after the examples ("Now write the SQL for the question below. The examples only illustrate style…") recovers few-shot: with hints, querylog 30.0 → 56.7 (8 fixed / 0 broke, p = 0.008) and train 33.3 → 60.0 (9 / 1, p = 0.02); without hints, querylog 43.3 → 53.3 and train 36.7 → 43.3. Hiding the examples' own hints is mixed (+6.7 querylog, −10 train; 2–3 flips), so it's dropped. **Frozen:** `fewshot_framing: separated`, example hints shown. The eval config keeps inline query-log as a framing ablation.
 - **Determinism fix:** value-index ties depended on `PYTHONHASHSEED` (D17). Re-running 02/03 dev after the fix gave identical EX.
 - [ ] Trimming T1–T4.
-- [ ] Optional: repeat the headline configs on `qwen3.5:9b` and/or on all 500 questions.
+- [ ] Optional: repeat the headline configs on `qwen2.5-coder:7b` and/or on the 468-question test split.
 
 ### Phase 5 — Analysis and write-up
-- [ ] `analysis/analyze.py` → `results/summary.md`, CI tables, McNemar matrix, waterfall chart of gains, and a Pareto chart.
-- [ ] Error analysis: 20 failures categorized (wrong column, wrong literal, join, aggregation, gold-SQL bug).
-- [ ] README: motivation, setup, how to reproduce, results vs paper, tradeoffs, limitations, and what I learned about evals.
-- [ ] `docs/`: `paper-summary.md`, `setup.md`, `eval-design.md`, `decisions.md` (one entry per tradeoff).
+- [x] `analysis/export_csv.py` + `analysis/summary.py` → `results/per_question.csv`, `results/summary.md` (CI tables, Holm-adjusted McNemar matrix), ladder chart, and a Pareto chart.
+- [x] Error analysis (`docs/error_analysis.md`): automatic taxonomy of all 88 C7 failures + 20 read by hand.
+- [x] README: motivation, setup, how to reproduce, results vs paper, tradeoffs, limitations, and what I learned about evals.
+- [x] `docs/`: `paper-summary.md`, `eval-design.md`, `decisions.md` (setup lives in the README). LICENSE (MIT; BIRD-derived files CC BY-SA 4.0).
+
+#### Phase 5 spec (written 2026-11-17)
+Written now on experiments 01–05. Trimming T1–T4, the qwen2.5-coder rerun and the test-split runs are still open; they will update the summary and README when they land, without changing the structure.
+
+1. **Committed per-question results: `results/per_question.csv`.**
+   - One row per (config, question) on eval, merged from the five raw JSONs. `results/raw/` stays out of git.
+   - Columns: config, question_id, db_id, difficulty, ex, valid_sql, prompt/completion tokens, LLM calls, latency, link recall. No SQL.
+   - Configs repeated across experiments (C4 is in 02–05) are checked to be **identical** row for row, then kept once. A mismatch is a bug and fails the script.
+   - Why: anyone can recompute every number and test without models or 10 GB of data. ~6K rows, ~300 KB.
+2. **`analysis/summary.py`** → `results/summary.md` + figures. Reads only the CSV.
+   - **Headline table:** the ladder C0 → C1 → C3 → C4 → C6 → C7, plus the C4-oracle reference, ± hints. EX with a Wilson CI, Δ vs parent with a paired bootstrap CI and McNemar p, prompt tok/q, s/q.
+   - **Pairwise McNemar matrix** for the headline configs, Holm-adjusted, since there are many tests.
+   - **Paper column:** Table 1/2 numbers taken from the PDF text, not memory, labelled as GPT-4o context only.
+3. **Figures** (`docs/figures/*.svg` + `.png`, matplotlib; I'll load the dataviz skill before writing chart code):
+   - (a) **Ladder chart:** EX ± 95% CI per step, no-hints and hints series, oracle as a reference line. It answers "what does each step add".
+   - (b) **Cost–accuracy Pareto:** EX vs s/question (log x) for every eval config, with the frontier marked. It answers "what's worth paying for".
+   - That's two charts; the McNemar matrix stays a table.
+4. **Error analysis, `docs/error_analysis.md`:**
+   - **Automatic taxonomy of every C7 (no hints) failure:**
+     - invalid SQL;
+     - linking dropped a needed column (`link_recall < 1`);
+     - right row count but wrong values;
+     - wrong row count;
+     - empty result.
+   - **Manual read of 20 failures** sampled with seed 42 from C7 no-hints, each tagged with one category: wrong column, wrong literal/value format, join, aggregation/formula, extra/missing output columns, ambiguous question, gold-SQL bug, other.
+     - Each tag comes with a one-line reason, written by me (Claude) after executing both queries. The doc says that plainly.
+     - Gold-SQL bugs are reported, never "fixed" (paper §4.1.1).
+5. **README.md:**
+   - **Overview:** one-paragraph motivation, the headline table and the two figures, results vs the paper (shape, not level), and what each technique costs.
+   - **Reproduce:** `make setup data metadata fewshot`, then `make run-01 … run-05 SPLIT=eval`, `make summary`.
+   - **Background:** an eval-design summary, limitations, and "what I learned about evals" (drawn from `tasks/lessons.md`), with links to `docs/`.
+   - **Paper:** linked, not included, with a citation.
+6. **docs/**
+   - `eval-design.md`: splits, the metric and its validation, the stats, determinism and caching, the leakage rules, and the promptfoo setup.
+   - `paper-summary.md`: the paper in my own words, about one page, no copied text.
+   - Setup goes in the README rather than a separate `setup.md`.
+7. **LICENSE: MIT for the code** (default; your call).
+   - The BIRD-derived files (`promptfoo/tests/*.yaml` carry question text and hints) keep BIRD's license, to be verified from the official BIRD repo, expected CC BY-SA 4.0. The README states this.
+8. **Makefile:** add `run-04`, `run-05` and `summary`.
+9. **Todo tidy-up:** check off the Phase 0/3 items that are actually done (few-shot pool source, configs, freezing prompts).
+10. **Verify:**
+    - `make summary` regenerates byte-identical outputs from the CSV.
+    - Every number in the README matches `summary.md`.
+    - Tests pass, and the README renders on GitHub (the repo is private, so I'll check it there).
 
 ### Phase 0 results (2026-11-16)
 - Ollama 0.40.16, promptfoo 0.125.1 (Node 22.23 keg-only), Python 3.12 via uv, 11 evaluator tests passing.
@@ -232,4 +276,15 @@ Profiling summaries are a one-time job of about 1 hour.
 
 ## Review
 
-_(filled in after implementation)_
+_(2026-11-17, after experiments 01–05 and Phase 5)_
+
+- **Delivered:** the full C0–C7 ladder ± hints on the frozen 150-question eval split, 26 configs, 0 provider errors. `results/per_question.csv` lets every number be recomputed without models or data. `results/summary.md` holds Holm-adjusted tests, and there are two figures, an error analysis, README, eval design, paper summary, and the D1–D20 decision log.
+- **Headline:** the paper's *shape* reproduces on qwen3.5:9b. Profiling ≈ expert metadata, linking adds a little, perfect linking adds a lot. The *level* is 16–29 pp below GPT-4o. The full pipeline beats bare DDL by +17.3 pp (Holm p = 0.001), but beats C1 by only +8.7 pp (Holm p = 0.35) at 16× the time. Few-shot, voting and checks add ≤ 1.3 pp each. Linking recall is the clearest lever.
+- **What worked in the process:**
+  - The frozen eval split caught two dev "wins" that didn't replicate.
+  - The disk cache made reruns free and exposed a nondeterminism bug.
+  - Verifying claims by executing SQL caught two real gold bugs and cleared a false suspicion.
+- **What I'd change:**
+  - Record model digest and versions per run from day one. The runner only gained a provenance footer in Phase 5, and a stale "Q4_K_M" note survived until then.
+  - Generate every number in prose from a query; I mistyped a ratio once.
+- **Open:** T1–T4 trimming, the qwen2.5-coder:7b rerun, and the 468-question test split.

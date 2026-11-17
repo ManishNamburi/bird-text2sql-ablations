@@ -10,6 +10,7 @@ Newest at the bottom.
 - **Options:** qwen2.5-coder 7B (4.7 GB), qwen3.5 9B (6.6 GB Q4), 14B models (~9 GB), nemotron-3-nano 4B, nemotron-3.5-bolt e4b (7.9 GB, multimodal).
 - **Choice:** `qwen3.5:9b` with thinking disabled as the main model, and `qwen2.5-coder:7b` reruns the headline configs.
 - **Tradeoff:** The 9B model is newer and likely stronger but slower. Running two models lets us ask whether the paper's gains depend on model strength. 14B would squeeze the context budget. Thinking mode is off because it multiplies latency, and the paper's pipeline uses a non-reasoning model (GPT-4o).
+- **As actually pulled (corrected 2026-11-17):** the "6.6 GB Q4" above was the pre-pull estimate. Ollama 0.40.16 serves `qwen3.5:9b` as 9.7B parameters, **nvfp4** quantization, on the **MLX** runner (7.6 GB), digest `d63f830f28d5`, pulled 2026-11-16 08:56. All 7,530 cached LLM calls behind experiments 01–05 were made after that pull with that tag, so every result comes from this one build. The runner didn't record this per run until Phase 5; it now writes a provenance footer (Ollama, promptfoo and Node versions, model digest) into each `results/*.md`.
 
 ## D2 — Eval set: stratified 150 per config + all unique questions for headline configs
 - **Tradeoff:** A 95% CI on one accuracy at n=150 is about ±8 pp. Comparisons use paired McNemar tests on the same questions, which detect smaller differences. The full set costs about 3× more compute per config.

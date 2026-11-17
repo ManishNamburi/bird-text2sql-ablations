@@ -8,7 +8,7 @@ export PROMPTFOO_DISABLE_TELEMETRY := 1
 
 SPLIT ?= dev
 
-.PHONY: setup data test splits metadata fewshot run-01 run-02 run-03 view
+.PHONY: setup data test splits metadata fewshot run-01 run-02 run-03 run-04 run-05 csv summary view
 
 setup:            ## install Python + Node deps and pull models
 	uv sync
@@ -50,6 +50,18 @@ run-02:           ## schema linking; make run-02 SPLIT=eval
 
 run-03:           ## few-shot; make run-03 SPLIT=eval
 	uv run python scripts/run_ablation.py promptfoo/configs/03_fewshot.yaml --split $(SPLIT)
+
+run-04:           ## 3 candidates + majority vote (C6); make run-04 SPLIT=eval
+	uv run python scripts/run_ablation.py promptfoo/configs/04_voting.yaml --split $(SPLIT)
+
+run-05:           ## SQL sanity checks + correction (C7); make run-05 SPLIT=eval
+	uv run python scripts/run_ablation.py promptfoo/configs/05_checks.yaml --split $(SPLIT)
+
+csv:              ## merge the local eval runs into results/per_question.csv (needs results/raw/)
+	uv run python analysis/export_csv.py
+
+summary:          ## results/summary.md + docs/figures/ from the committed per_question.csv
+	uv run python analysis/summary.py
 
 view:             ## open promptfoo's web UI on this project's evals
 	npx promptfoo view -y
