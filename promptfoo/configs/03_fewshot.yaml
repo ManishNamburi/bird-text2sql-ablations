@@ -1,8 +1,11 @@
 # Experiment 03 — few-shot examples on top of schema linking (C4 -> C5).
-#   C5-train:    8 examples from BIRD train, other databases (paper §4 setup)
-#   C5-querylog: 8 examples from BIRD dev (minus all MiniDev), same database ("query log", §5-6)
+#   C5-train-sep:    8 examples from BIRD train, other databases (paper §4 setup)
+#   C5-querylog-sep: 8 examples from BIRD dev (minus all MiniDev), same database ("query log", §5-6)
+#   C5-querylog:     same examples, original inline framing (framing ablation)
+# Framing frozen 2026-11-16 from the dev-only iteration in 03b_fewshot_framing.yaml (D17):
+# "-sep" ends the example block with a hand-off line; inline examples were copied on dev.
 # Examples are added to the FINAL call only, so the linking drafts are cache hits from 02.
-# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/03_fewshot.yaml --split dev
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/03_fewshot.yaml --split eval
 description: "03 few-shot: none vs train (other DBs) vs query log (same DB), on top of linking"
 
 prompts:
@@ -13,8 +16,11 @@ providers:
     label: C4-linked
     config: { metadata: fused, hints: false, linking: llm }
   - id: file://../providers/pipeline.py
-    label: C5-train
-    config: { metadata: fused, hints: false, linking: llm, fewshot: train }
+    label: C5-train-sep
+    config: { metadata: fused, hints: false, linking: llm, fewshot: train, fewshot_framing: separated }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog-sep
+    config: { metadata: fused, hints: false, linking: llm, fewshot: querylog, fewshot_framing: separated }
   - id: file://../providers/pipeline.py
     label: C5-querylog
     config: { metadata: fused, hints: false, linking: llm, fewshot: querylog }
@@ -22,11 +28,22 @@ providers:
     label: C4-linked+hints
     config: { metadata: fused, hints: true, linking: llm }
   - id: file://../providers/pipeline.py
-    label: C5-train+hints
-    config: { metadata: fused, hints: true, linking: llm, fewshot: train }
+    label: C5-train-sep+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: train, fewshot_framing: separated }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog-sep+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: querylog, fewshot_framing: separated }
   - id: file://../providers/pipeline.py
     label: C5-querylog+hints
     config: { metadata: fused, hints: true, linking: llm, fewshot: querylog }
+
+# Per-config percentages in the web viewer and JSON (named scores are summed per column;
+# __count = tests in the column). CIs and paired tests stay in analysis/analyze.py.
+derivedMetrics:
+  - name: EX_pct
+    value: 100 * ex / __count
+  - name: valid_sql_pct
+    value: 100 * valid_sql / __count
 
 defaultTest:
   assert:

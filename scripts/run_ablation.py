@@ -9,7 +9,8 @@ thrash Ollama's prefix KV cache (single slot).
      Fills birdeval's LLM disk cache with good KV-cache locality and comparable timings.
   2. Combined: all configs in one eval. Every LLM call is a disk-cache hit, so it is fast,
      and promptfoo gets one side-by-side table (`npm run view`). The original call timings
-     are kept in the cache and reported via provider metadata.
+     are kept in the cache and reported via provider metadata. This pass runs with
+     BIRDEVAL_CACHE_ONLY=1, so a cache miss is an error instead of a concurrent Ollama call.
 """
 
 from __future__ import annotations
@@ -38,13 +39,17 @@ def promptfoo_env() -> dict:
     env["PROMPTFOO_DISABLE_TELEMETRY"] = "1"
     env["PROMPTFOO_DISABLE_UPDATE"] = "1"
     env["NPM_CONFIG_UPDATE_NOTIFIER"] = "false"
+    # Per-test limit for the Python provider (promptfoo default: 300 s). One test is a whole
+    # pipeline: the slowest dev question took 181 s, and voting (C6) triples the calls.
+    env["REQUEST_TIMEOUT_MS"] = str(30 * 60 * 1000)
     return env
 
 
-def promptfoo(args: list[str]) -> None:
+def promptfoo(args: list[str], extra_env: dict | None = None) -> None:
     cmd = ["npx", "promptfoo", "eval", *args, "--no-cache", "--no-table", "--no-progress-bar"]
     print("$", " ".join(cmd), flush=True)
-    proc = subprocess.run(cmd, cwd=ROOT, env=promptfoo_env(), capture_output=True, text=True)
+    env = {**promptfoo_env(), **(extra_env or {})}
+    proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
     for line in proc.stdout.splitlines():
         if re.search(r"passed|failed|errors|Duration|Error log", line):
             print("   ", line.strip(), flush=True)
@@ -79,10 +84,17 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     regex = "^(" + "|".join(re.escape(lbl) for lbl in labels) + ")$"
     print("\n== combined eval (cache hits)", flush=True)
-    promptfoo(["-c", config, "-t", tests, "--filter-providers", regex, "-j", "4", "-o", str(out),
-               "--description", f"{cfg.get('description', a.config.stem)} [{a.split}]"])
+    warmed = not a.no_warmup  # without a warm-up the combined pass must call Ollama: run it serially
+    promptfoo(["-c", config, "-t", tests, "--filter-providers", regex, "-j", "4" if warmed else "1",
+               "-o", str(out), "--description", f"{cfg.get('description', a.config.stem)} [{a.split}]",
+               "--tag", f"split={a.split}", "--tag", f"experiment={a.config.stem}"],
+              extra_env={"BIRDEVAL_CACHE_ONLY": "1"} if warmed else None)
 
-    summary = summarize(load_results(out), order=labels)
+    df = load_results(out)
+    if df["provider_error"].any():
+        bad = df[df["provider_error"]].groupby("config").size().to_dict()
+        raise SystemExit(f"provider errors in {out.name} (e.g. cache misses in the combined pass): {bad}")
+    summary = summarize(df, order=labels)
     md = ROOT / "results" / f"{a.config.stem}__{a.split}.md"
     md.write_text(f"# {cfg.get('description', a.config.stem)} — split `{a.split}`\n\n"
                   + summary.to_markdown(index=False) + "\n")

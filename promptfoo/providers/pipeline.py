@@ -24,8 +24,14 @@ def call_api(prompt, options, context):
     calls = result.calls
     prompt_tokens = sum(c.prompt_tokens for c in calls)
     completion_tokens = sum(c.completion_tokens for c in calls)
+    latency_ms = round(sum(c.total_ms for c in calls))
     return {
         "output": result.sql,
+        # Shown by the web viewer as "Actual Prompt Sent" (the YAML prompt is a placeholder).
+        # For multi-call configs this is the final call; the drafts are in link_traces.
+        "prompt": result.messages,
+        # Replaces promptfoo's own measurement, which is ~0 ms on a disk-cache replay.
+        "latencyMs": latency_ms,
         "tokenUsage": {
             "prompt": prompt_tokens,
             "completion": completion_tokens,
@@ -36,7 +42,7 @@ def call_api(prompt, options, context):
             "llm_calls": len(calls),
             # Timings of the ORIGINAL (uncached) calls; promptfoo's own latency column shows
             # ~0 ms on cache hits, so analysis uses these instead.
-            "latency_ms": round(sum(c.total_ms for c in calls)),
+            "latency_ms": latency_ms,
             "prefill_ms": round(sum(c.prompt_ms for c in calls)),
             "decode_ms": round(sum(c.gen_ms for c in calls)),
             "all_cached": all(c.cached for c in calls),

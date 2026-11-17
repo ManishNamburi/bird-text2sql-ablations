@@ -11,10 +11,19 @@ Rules learned while working on this project. Review at session start.
 - Key everything by `question_id` and assert uniqueness.
 
 ## Local LLM ops
+- Cache misses on a supposedly unchanged pipeline are a determinism alarm. Re-run under two `PYTHONHASHSEED`s: if the miss moves with the seed, something iterates a set into a prompt. Sort before rendering.
 - Don't run CPU-heavy jobs beside an LLM batch: JSON-constrained decoding tripled from 5 to 17 s/call while indexes were building.
 - Ollama's MLX runner ignores `num_ctx`, while llama.cpp enforces it (silent truncation). Set one large `num_ctx` everywhere and assert `prompt_tokens < num_ctx`.
 - Generated artifacts (LLM summaries) feed every later config. Audit a seeded sample before running ablations on them.
 - When a summarizer hallucinates, fix the input before the prompt: the "stored as text" error came from the profile not stating the storage class.
+
+## Reporting
+- Before blaming the evaluator (ties, row order), execute both queries. A "logically identical" pair on qid 1102 was actually an alias bug in one of them.
+- When a technique *hurts*, rebuild the exact prompt from the cache and read it before theorizing. That separates harness bugs from model behavior in minutes.
+- Recompute every number quoted in prose from the data before publishing. Two ratios in the first results draft were rounded wrong (3.68–4.25× written as "3.7–4.2×").
+- Quote paper numbers from the PDF text, never from memory. A linking figure in the 02 write-up was wrong ("63.2 → 66.2"; Table 2 says 61.2 → 63.2 → 69.0).
+- A choice made on the 30-question dev slice is a hypothesis, not a result. Separated framing looked like +13 pp over C4 on dev and was +0 on eval. Only the larger inline-vs-separated effect replicated.
+- Report paired tests, not overlapping CIs. With n=150, the CIs of C1 and C3 overlap heavily, but the paired view also shows 37 discordant questions, which is the real story.
 
 ## promptfoo
 - promptfoo injects `basePath` into a Python provider's `config`. Strip its known keys, then validate strictly.

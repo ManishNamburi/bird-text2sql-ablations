@@ -94,7 +94,9 @@ def lookup(db_id: str, literal: str, min_similarity: float = 0.6, top_k: int = 1
     mh = MinHash(num_perm=NUM_PERM)
     mh.update_batch([s.encode() for s in q])
     best: dict[tuple[str, str], Match] = {}
-    for key in lsh.query(mh):
+    # lsh.query returns a set: iterate in index order so ties (equal similarity) resolve the same
+    # way in every process. Otherwise the revision prompt depends on PYTHONHASHSEED.
+    for key in sorted(lsh.query(mh), key=int):
         table, column, value = keys[key]
         sim = jaccard(q, shingles(value))
         if sim >= min_similarity and sim > best.get((table, column), Match("", "", "", -1)).similarity:

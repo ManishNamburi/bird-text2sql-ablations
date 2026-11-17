@@ -73,3 +73,26 @@ def test_timeout_interrupts_runaway_query():
 )
 def test_extract_sql(reply, expected):
     assert extract_sql(reply) == expected
+
+
+def test_cache_only_mode_refuses_misses_but_serves_hits(tmp_path, monkeypatch):
+    """run_ablation's combined pass sets BIRDEVAL_CACHE_ONLY=1: a miss must raise before any
+    request reaches Ollama, while hits are served as usual."""
+    import json
+
+    from birdeval import llm
+
+    monkeypatch.setattr(llm, "CACHE_DIR", tmp_path)
+    monkeypatch.setenv("BIRDEVAL_CACHE_ONLY", "1")
+    monkeypatch.setattr(llm.requests, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("called Ollama")))
+    msgs = [{"role": "user", "content": "hi"}]
+    with pytest.raises(llm.CacheMiss):
+        llm.chat(msgs)
+    payload = {"model": llm.DEFAULT_MODEL, "messages": msgs, "stream": False, "think": False,
+               "options": {"temperature": 0.0, "seed": 42, "num_ctx": llm.DEFAULT_NUM_CTX, "num_predict": 1024}}
+    key = llm._cache_key(payload)
+    (tmp_path / key[:2]).mkdir()
+    (tmp_path / key[:2] / f"{key}.json").write_text(json.dumps(
+        {"text": "ok", "model": llm.DEFAULT_MODEL, "prompt_tokens": 1, "completion_tokens": 1,
+         "prompt_ms": 1, "gen_ms": 1, "total_ms": 2}))
+    assert llm.chat(msgs).cached

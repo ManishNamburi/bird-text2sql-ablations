@@ -22,8 +22,9 @@ def schema_text(db_id: str, metadata: str, detail: str = "long", columns=None,
 
 
 def messages(schema: str, q: dict, hints: bool, examples: list[dict] | None = None,
-             cross_db: bool = False) -> list[dict]:
+             cross_db: bool = False, example_hints: bool = True, separated: bool = False) -> list[dict]:
     evidence = q.get("evidence") if hints else None
-    block = prompts.few_shot_block(examples, hints, cross_db) if examples else None
+    block = (prompts.few_shot_block(examples, hints and example_hints, cross_db, separated)
+             if examples else None)
     return [{"role": "system", "content": prompts.SYSTEM},
             {"role": "user", "content": prompts.user_message(schema, q["question"], evidence, block)}]

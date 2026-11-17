@@ -31,6 +31,8 @@ class PipelineConfig:
     link_max_retry: int = 1  # literal-revision rounds per variant
     fewshot: Literal["none", "train", "querylog"] = "none"
     fewshot_k: int = 8  # paper uses 8
+    fewshot_framing: Literal["inline", "separated"] = "inline"  # separated: hand-off line after examples
+    fewshot_example_hints: bool = True  # show examples' BIRD hints (only when hints=True)
     num_ctx: int = DEFAULT_NUM_CTX
     seed: int = 42
 
@@ -43,6 +45,8 @@ class PipelineConfig:
             raise ValueError(f"unknown linking: {self.linking!r}")
         if self.fewshot not in ("none", "train", "querylog"):
             raise ValueError(f"unknown fewshot: {self.fewshot!r}")
+        if self.fewshot_framing not in ("inline", "separated"):
+            raise ValueError(f"unknown fewshot_framing: {self.fewshot_framing!r}")
         object.__setattr__(self, "link_variants", tuple(self.link_variants))  # YAML gives lists
         unknown = set(self.link_variants) - set(VARIANTS)
         if unknown:
@@ -59,7 +63,8 @@ class PipelineResult:
 
 def build_messages(q: dict, cfg: PipelineConfig, columns=None, examples=None) -> list[dict]:
     schema = schema_text(q["db_id"], cfg.metadata, cfg.profile_detail, columns, cfg.bird_values)
-    return messages(schema, q, cfg.hints, examples, cross_db=cfg.fewshot == "train")
+    return messages(schema, q, cfg.hints, examples, cross_db=cfg.fewshot == "train",
+                    example_hints=cfg.fewshot_example_hints, separated=cfg.fewshot_framing == "separated")
 
 
 def run(q: dict, cfg: PipelineConfig) -> PipelineResult:

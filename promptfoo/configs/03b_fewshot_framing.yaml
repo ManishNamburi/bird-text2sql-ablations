@@ -1,0 +1,66 @@
+# Experiment 03b (DEV ONLY) — few-shot prompt framing, iterated on the 30-question dev slice.
+# On dev, inline few-shot examples were copied into the answer (literals, filters, aliases) and
+# hurt accuracy with hints on (see tasks/todo.md, "Dev check of C4/C5"). Two candidate fixes,
+# each one change away from its parent:
+#   -sep        a hand-off line after the examples (prompts.FEWSHOT_HANDOFF), so the real
+#               question is not read as a ninth example
+#   -noexhints  -sep, plus the examples' own BIRD hints are hidden (they are noisy and sometimes
+#               contradict the example's SQL). Only differs from -sep when hints are on.
+# The winner becomes the frozen C5 prompt for the eval split. Never run this file on eval.
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/03b_fewshot_framing.yaml --split dev
+description: "03b few-shot framing (dev only): inline vs separated vs separated without example hints"
+
+prompts:
+  - "{{question}}" # unused by the pipeline provider; it builds its own prompts from vars
+
+providers:
+  - id: file://../providers/pipeline.py
+    label: C4-linked
+    config: { metadata: fused, hints: false, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog
+    config: { metadata: fused, hints: false, linking: llm, fewshot: querylog }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog-sep
+    config: { metadata: fused, hints: false, linking: llm, fewshot: querylog, fewshot_framing: separated }
+  - id: file://../providers/pipeline.py
+    label: C5-train
+    config: { metadata: fused, hints: false, linking: llm, fewshot: train }
+  - id: file://../providers/pipeline.py
+    label: C5-train-sep
+    config: { metadata: fused, hints: false, linking: llm, fewshot: train, fewshot_framing: separated }
+  - id: file://../providers/pipeline.py
+    label: C4-linked+hints
+    config: { metadata: fused, hints: true, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: querylog }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog-sep+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: querylog, fewshot_framing: separated }
+  - id: file://../providers/pipeline.py
+    label: C5-querylog-sep-noexhints+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: querylog, fewshot_framing: separated, fewshot_example_hints: false }
+  - id: file://../providers/pipeline.py
+    label: C5-train+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: train }
+  - id: file://../providers/pipeline.py
+    label: C5-train-sep+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: train, fewshot_framing: separated }
+  - id: file://../providers/pipeline.py
+    label: C5-train-sep-noexhints+hints
+    config: { metadata: fused, hints: true, linking: llm, fewshot: train, fewshot_framing: separated, fewshot_example_hints: false }
+
+# Per-config percentages in the web viewer and JSON (named scores are summed per column;
+# __count = tests in the column). CIs and paired tests stay in analysis/analyze.py.
+derivedMetrics:
+  - name: EX_pct
+    value: 100 * ex / __count
+  - name: valid_sql_pct
+    value: 100 * valid_sql / __count
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex

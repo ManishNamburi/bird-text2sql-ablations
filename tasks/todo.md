@@ -59,7 +59,7 @@ Metadata block (paper Table 1):
 - [ ] **C3 Fused metadata** — BIRD + profiling.
 
 Schema linking (paper Table 2):
-- [ ] **C4 C3 + schema linking** _(implemented + unit-tested 2026-11-16, D15; config `02_linking.yaml`; dev verification pending)_ — — simplified paper §3 algorithm: generate SQL under 3 schema variants (focused/minimal, full/minimal, focused/maximal), collect fields, and fix literals via the LSH value index with ≤1 retry.
+- [ ] **C4 C3 + schema linking** _(implemented + unit-tested 2026-11-16, D15; config `02_linking.yaml`; dev-verified 2026-11-16: 0 errors, link recall 0.93)_ — — simplified paper §3 algorithm: generate SQL under 3 schema variants (focused/minimal, full/minimal, focused/maximal), collect fields, and fix literals via the LSH value index with ≤1 retry.
 - [ ] **C4-oracle Perfect linking** _(implemented, D15)_ — — fields taken from the gold SQL. This is an upper bound, labelled as oracle.
 
 Paper §4 extras (not ablated in the paper):
@@ -133,10 +133,28 @@ Prompt trimming (on the best non-oracle config):
 - [x] `src/birdeval/schema.py`: canonical renderer, DDL ± BIRD metadata, 36 tests (D10).
 - [ ] Iterate prompts **only on the 30-question dev slice**; freeze prompts before running on the 150.
 
+### Phase 3b — promptfoo features (approved and done 2026-11-16, D18; verified on 02 dev: identical EX, 0 new LLM calls, prompt visible in viewer)
+- [x] Provider returns top-level `prompt` (actual final messages) and `latencyMs` (original summed latency) so the viewer shows real prompts and true timings.
+- [x] Explicit Python timeout: `REQUEST_TIMEOUT_MS` = 30 min in the runner (default 300 s per test; slowest dev question 181 s). `workers` left alone: warm-ups run at -j 1 and the combined pass is cache-only.
+- [x] `derivedMetrics`: EX % and valid-SQL % per config.
+- [x] `--tag split=… --tag experiment=…` on combined evals.
+- [x] Combined pass is cache-only (`BIRDEVAL_CACHE_ONLY=1` → `CacheMiss`), and the runner fails on any provider error.
+- [x] Record what was skipped and why (resume, repeat, native ollama provider, generators, hooks) in `docs/decisions.md`.
+
 ### Phase 4 — Runs
-- [ ] Metadata ladder C0–C3 (± hints).
-- [ ] Linking C4 and C4-oracle.
-- [ ] C5–C7.
+- [x] Metadata ladder C0–C3 (± hints) on eval (150): 1 h 33 min, 0 errors. See `docs/results.md` §01 and `results/01_metadata__eval_analysis.md`.
+- [x] Linking C4 and C4-oracle on eval (150): 3 h 10 min, 0 errors. See `docs/results.md` §02.
+- [x] C5 on eval (150): 2 h 5 min, 0 errors. See `docs/results.md` §03.
+- [ ] C6–C7.
+
+#### Dev check of C4/C5 (n=30, 2026-11-16; sanity only, nothing here is significant)
+- **02 linking:** C3 30.0 → C4 40.0 → oracle 56.7 (no hints); with hints 43.3 → 53.3 → 56.7. Link recall 0.93, ~6 linked columns. C4 costs 6.2 calls, 18.5K prompt tok, ~56 s per question (vs 1 call, 8.6K, ~18 s for C3). The oracle is a single 725-token call. 0 errors.
+- **03 few-shot (on top of C4):** no hints: C4 40.0 / train 36.7 / querylog 43.3. With hints: C4 53.3 / train 33.3 / querylog 30.0 (C4+h → querylog+h: 3 fixed, 10 broke, p = 0.09).
+- **Harness checked, no bug:** prompts rebuilt from cache; examples are same-DB (querylog) or other-DB (train), placed between schema and question, no gold leakage.
+- **Failure pattern is copying:** wrong literal from a near-duplicate example (qid 486: `= 5` instead of 7; top sim 0.99), dropped filters (Fresno, Marvel, "Aaron"), example-shaped extra columns (COUNT, MIN/MAX), and T1/T2 alias mix-ups (1102: `T1.player_name` on Player_Attributes).
+- **Likely causes:** (1) the target question is formatted as a ninth example with nothing separating it; (2) BIRD dev hints are noisy (one example's hint says `= 16`, its SQL `= 10`), so with hints on the examples teach "the SQL may ignore the hint". Without hints, query-log examples do fix percentage formulas and joins (moderate 31 → 56).
+- **Framing fix (03b, dev only, D17):** a hand-off line after the examples ("Now write the SQL for the question below. The examples only illustrate style…") recovers few-shot: with hints, querylog 30.0 → 56.7 (8 fixed / 0 broke, p = 0.008) and train 33.3 → 60.0 (9 / 1, p = 0.02); without hints, querylog 43.3 → 53.3 and train 36.7 → 43.3. Hiding the examples' own hints is mixed (+6.7 querylog, −10 train; 2–3 flips), so it's dropped. **Frozen:** `fewshot_framing: separated`, example hints shown. The eval config keeps inline query-log as a framing ablation.
+- **Determinism fix:** value-index ties depended on `PYTHONHASHSEED` (D17). Re-running 02/03 dev after the fix gave identical EX.
 - [ ] Trimming T1–T4.
 - [ ] Optional: repeat the headline configs on `qwen3.5:9b` and/or on all 500 questions.
 

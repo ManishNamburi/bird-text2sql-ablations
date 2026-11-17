@@ -35,6 +35,10 @@ DEFAULT_MODEL = os.environ.get("BIRDEVAL_MODEL", "qwen3.5:9b")
 DEFAULT_NUM_CTX = 24576
 
 
+class CacheMiss(RuntimeError):
+    """A call that needed Ollama while BIRDEVAL_CACHE_ONLY=1."""
+
+
 @dataclass
 class LLMResult:
     text: str
@@ -86,6 +90,10 @@ def chat(
     if use_cache and path.exists():
         data = json.loads(path.read_text())
         return LLMResult(**{**data, "cached": True})
+    if os.environ.get("BIRDEVAL_CACHE_ONLY") == "1":
+        # Set by run_ablation.py for its combined pass (-j 4): a miss there would send
+        # concurrent requests to Ollama and record distorted timings, so refuse instead.
+        raise CacheMiss(f"no cached reply for this {model} request and BIRDEVAL_CACHE_ONLY=1")
 
     t0 = time.perf_counter()
     resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=timeout_s)

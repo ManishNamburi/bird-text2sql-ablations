@@ -77,3 +77,14 @@ def test_few_shot_block_placement_and_hints():
     no_hints = prompts.few_shot_block(ex, False, False)
     assert "Hint" not in no_hints and "this database" in no_hints
     assert prompts.user_message("S", "Q") == "Database schema:\nS\n\nQuestion: Q"  # unchanged without examples
+
+
+def test_separated_framing_and_hidden_example_hints():
+    from birdeval.promptbuild import messages
+    ex = [{"question": "Q?", "evidence": "E", "SQL": "SELECT 1"}]
+    q = {"question": "Real?", "evidence": "H"}
+    default = messages("S", q, True, ex)[1]["content"]
+    assert prompts.FEWSHOT_HANDOFF not in default and "Hint: E" in default  # defaults unchanged
+    sep = messages("S", q, True, ex, separated=True, example_hints=False)[1]["content"]
+    assert sep.index("SELECT 1") < sep.index(prompts.FEWSHOT_HANDOFF) < sep.index("Question: Real?")
+    assert "Hint: E" not in sep and sep.endswith("Hint: H")  # target question keeps its own hint

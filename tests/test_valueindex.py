@@ -31,3 +31,16 @@ def test_dev_slice_literal_mismatches_are_resolved(db, literal, field):
 def test_shingles_are_case_and_space_insensitive():
     assert jaccard(shingles("Marvel  Comics"), shingles("marvel comics")) == 1.0
     assert shingles("ab") == {"ab"}
+
+
+def test_lookup_is_independent_of_hash_seed():
+    """lsh.query returns a set; ties must not resolve by hash order (found 2026-11-16: one
+    literal-revision prompt changed between processes, so it could never hit the cache)."""
+    import subprocess
+    import sys
+    code = ("from birdeval.valueindex import lookup; "
+            "print([(m.table, m.column, m.value) for m in lookup('california_schools', 'Fresno', 0.6, 10)])")
+    outs = {subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                           env={**__import__("os").environ, "PYTHONHASHSEED": s}, check=True).stdout
+            for s in ("1", "2", "3")}
+    assert len(outs) == 1

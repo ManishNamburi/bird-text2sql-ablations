@@ -152,3 +152,29 @@ Newest at the bottom.
 - **Placement:** examples go in the **final** call only, after the schema and before the question. C5's linking drafts stay byte-identical to C4's (cache hits), and the schema-first prefix caching still works. With no examples the prompt is unchanged byte for byte (verified: 240/240 cache hits).
 - **Hints in examples** are shown only when the run itself uses hints, so a no-hints config never sees evidence-style text.
 - **Download sizes:** 2.65 MB + 0.79 MB (train) + 0.95 MB (dev), instead of the 8.9 GB `train.zip`. Few-shot needs only question/SQL text, not databases.
+
+## D17 — Few-shot framing iterated on dev; value-index ties made deterministic
+- **Why (2026-11-16):** on the 30-question dev slice, C5 *hurt* with hints on (C4+h 53.3 → C5-querylog+h 30.0; 3 fixed, 10 broke). Rebuilding the prompts from the cache showed no harness bug. The model copied from the examples: a literal from a near-duplicate (`= 5` for "7"), dropped filters, example-shaped extra columns, T1/T2 alias mix-ups.
+- **Two candidate fixes, each one change away from its parent** (`promptfoo/configs/03b_fewshot_framing.yaml`, dev only):
+  - `fewshot_framing: separated` ends the example block with a hand-off line (`prompts.FEWSHOT_HANDOFF`), so the real question isn't read as a ninth example.
+  - `fewshot_example_hints: false` hides the examples' own BIRD hints. They are noisy (one says `= 16` while its SQL says `= 10`) and can teach the model that SQL may ignore the hint.
+- **Defaults keep the original prompt byte for byte**, so the original C5 stays a valid, cached config and is reported alongside the fix.
+- *Tradeoff:* choosing a prompt after looking at results is tuning. This is allowed on dev and only on dev (project rule). The chosen framing is frozen *before* any eval-split run, and the dev numbers are labelled as iteration, not results. With n=30 this pick is noisy; the eval split is the real test.
+- **Determinism bug found along the way:** `valueindex.lookup` iterated `lsh.query()` (a set), so among equal-similarity matches the example value and the order of the matched columns depended on `PYTHONHASHSEED`. That text goes into the literal-revision prompt, so one dev prompt changed between processes (found as a cache miss that recurred under every hash seed). Fix: iterate keys in index order. A regression test runs `lookup` under 3 hash seeds and fails on the old code. Experiment 01 is unaffected (no linking). The 02/03 dev runs were redone after the fix.
+
+## D18 — Which promptfoo features we use, and which we skip
+A review of promptfoo 0.125.1 against this setup (2026-11-16). Each claim below was checked in the installed code, not just the docs.
+- **Adopted:**
+  - The provider returns top-level `prompt` (the final call's messages) and `latencyMs` (the original summed latency). The viewer shows them as "Actual Prompt Sent" and real latency, instead of the YAML placeholder `{{question}}` and ~0 ms replay time. Verified in the viewer.
+  - `derivedMetrics` `EX_pct` and `valid_sql_pct` (`100 * ex / __count`). On dev they match the pandas numbers exactly.
+  - `--tag split=… --tag experiment=…` on every combined eval.
+  - `REQUEST_TIMEOUT_MS` = 30 min in the runner's environment. The Python provider's default limit is 300 s *per test*, which is a whole pipeline here. The slowest dev question took 181 s, and voting (C6) triples the calls.
+  - **Cache-only combined pass:** the runner sets `BIRDEVAL_CACHE_ONLY=1`, so `llm.chat` raises `CacheMiss` instead of calling Ollama at `-j 4`. The runner fails if any row has a provider error. Without a warm-up (`--no-warmup`), the combined pass runs at `-j 1` with live calls.
+- **Skipped, with reasons:**
+  - *promptfoo's cache:* its key hashes the provider script but not the modules it imports (`src/birdeval/*`), so a pipeline edit would replay stale answers. Our cache keys on the exact Ollama request instead.
+  - *`--resume` / `retry`:* they refuse `--no-write`, which the warm-ups use. A restart is already cheap: finished calls come back from our disk cache.
+  - *`--repeat`:* with temperature 0, a fixed seed and our cache, repeats are identical. Run-to-run instability needs different seeds, which is a `PipelineConfig` field.
+  - *Native `ollama:chat` provider for the single-call configs:* it reports no prefill/decode timings. It would also bypass our cache and the shared prompt builder, which keeps linking's `full_maximal` draft byte-identical to C2. One code path for all configs matters more than less code for a few.
+  - *Python test generators:* frozen, committed YAML fits "freeze the eval set" better.
+  - *`extensions` hooks:* the `afterAll` return value isn't saved, so `analysis/analyze.py` stays separate.
+  - *OTLP tracing:* per-call timelines for linking would be nice in the viewer, but they need OpenTelemetry packages. Possible for Phase 5.

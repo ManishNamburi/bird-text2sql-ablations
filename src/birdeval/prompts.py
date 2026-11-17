@@ -24,14 +24,24 @@ def user_message(schema: str, question: str, evidence: str | None = None,
     return msg
 
 
-def few_shot_block(examples: list[dict], with_evidence: bool, cross_db: bool) -> str:
-    """Few-shot examples (paper §4). Hints are shown only when the run itself uses hints."""
+FEWSHOT_HANDOFF = ("Now write the SQL for the question below. The examples only illustrate style: "
+                   "take tables, columns, values and conditions from this question, its hint if given, "
+                   "and the schema, not from the examples.")
+
+
+def few_shot_block(examples: list[dict], with_evidence: bool, cross_db: bool,
+                   separated: bool = False) -> str:
+    """Few-shot examples (paper §4). Hints are shown only when with_evidence.
+    separated=True ends the block with FEWSHOT_HANDOFF, so the real question is not read as
+    a ninth example (dev 2026-11-16: inline examples were copied - literals, filters, aliases)."""
     where = ("from other databases (their tables differ from the schema above)" if cross_db
              else "previously asked on this database")
     parts = [f"Examples of similar questions and their SQL, {where}:"]
     for e in examples:
         hint = f"\nHint: {e['evidence']}" if with_evidence and e.get("evidence") else ""
         parts.append(f"Question: {e['question']}{hint}\nSQL: {e['SQL']}")
+    if separated:
+        parts.append(FEWSHOT_HANDOFF)
     return "\n\n".join(parts)
 
 
