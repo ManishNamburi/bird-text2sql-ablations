@@ -64,8 +64,8 @@ Schema linking (paper Table 2):
 
 Paper §4 extras (not ablated in the paper):
 - [ ] **C5 C4 + few-shot** _(implemented 2026-11-16, D16)_: two pools: `train` (8 examples from 69 other DBs, the paper's setup) and `querylog` (8 examples from same-DB BIRD dev minus MiniDev). Config `03_fewshot.yaml`.
-- [ ] **C6 C5 + 3 candidates + majority vote** — vary seed and schema field order; parse with sqlglot; vote on execution results.
-- [ ] **C7 C6 + SQL sanity checks and correction** — NULL ordering for ASC/MIN, subquery-vs-ORDER BY, string concatenation, with ≤2 retries.
+- [x] **C6 C4 + 3 candidates + majority vote** _(done 2026-11-17, D19; parent changed from C5 to C4 after few-shot gave no gain)_ — vary seed and schema field order; vote on execution results (execution replaces the sqlglot validity check).
+- [x] **C7 C6 + SQL sanity checks and correction** _(done 2026-11-17, D20)_ — NULL ordering for ASC/MIN, subquery-vs-ORDER BY, string concatenation, with ≤3 retries (paper).
 
 Cross factor:
 - [ ] **Hints (evidence) on/off** for C0, C1, C3, C4, and C7 (the paper's main contrast).
@@ -145,7 +145,52 @@ Prompt trimming (on the best non-oracle config):
 - [x] Metadata ladder C0–C3 (± hints) on eval (150): 1 h 33 min, 0 errors. See `docs/results.md` §01 and `results/01_metadata__eval_analysis.md`.
 - [x] Linking C4 and C4-oracle on eval (150): 3 h 10 min, 0 errors. See `docs/results.md` §02.
 - [x] C5 on eval (150): 2 h 5 min, 0 errors. See `docs/results.md` §03.
-- [ ] C6–C7.
+- [x] C6 on eval (150): 94 min, 0 errors. See `docs/results.md` §04.
+- [x] C7 on eval (150): 15 min, 0 errors. See `docs/results.md` §05.
+
+#### C7 spec — SQL sanity checks + correction (paper §4, written 2026-11-17)
+Paper §4: each candidate is checked for constructions "likely to indicate an incorrect response". If one is found, "the LLM is asked for a correction with up to three retries"; then the vote. The four checks it names:
+- (a) **NULL ordering:** "ensure a NOT NULL predicate on f" if the output is ordered ascending on f.
+- (b) the same, if the select list contains `MIN(f)`.
+- (c) **min/max via a nested subquery** instead of `ORDER BY … LIMIT`.
+- (d) **string concatenation** of fields instead of returning them separately.
+
+- **Parent is C6-vote, the pre-registered C6.** C6-shuffle+hints looked better on eval, but picking it now would be choosing on the eval split (its p = 0.031 doesn't survive Holm). Checks run on every candidate *before* the vote, as in the paper.
+- **Second config, C4-checked = C4 + checks** (single candidate, no vote). It isolates what the checks do on their own. Paper and C6 order are unaffected, and it is one change from C4.
+- **Detectors** (`src/birdeval/sqlchecks.py`, sqlglot AST, resolved through the existing qualifier so aliases map to real columns):
+  - (a)/(b) fire when `f` is ordered ASC (explicit or default) or appears in `MIN(f)`, and no `f IS NOT NULL` (or a comparison that already excludes NULL, e.g. `f > x`) is in that SELECT's WHERE/JOIN.
+  - **Guard (declared deviation):** fire only if `f` actually contains NULLs in the database (one cached `SELECT 1 … WHERE f IS NULL LIMIT 1`). Otherwise the check costs a call and can't change the result.
+  - (c) fires on `col = (SELECT MAX/MIN(col) …)`.
+  - (d) fires on `||` or `CONCAT` in the outer select list.
+- **Correction:** the candidate's own messages + its SQL as the assistant turn + a user turn naming each fired check and asking for a revised query. T = 0, same seed as the candidate.
+  - Re-check after each revision, up to 3 retries.
+  - If a revision fails to execute, keep the last version that did (corrections must not create errors).
+- **Calibrating without touching eval:** run the detectors over the **gold SQL of the query-log pool** (BIRD dev minus MiniDev, same 11 DBs). A check that fires often on gold encodes a preference BIRD's authors don't share, so it gets dropped *before* any model run. The correction-prompt wording may be iterated on dev only, then frozen.
+- **Diagnostics:** fired checks per candidate (by type), retries used, whether the final SQL still trips a check, and whether a correction changed the result rows. Analysis reports, per check: firing rate, and EX before vs after on the questions where it fired (paired).
+- **Config** `promptfoo/configs/05_checks.yaml`, ± hints: C4-linked, C4-checked, C6-vote, C7 (parents cached).
+- **Cost.** Only flagged candidates pay, at ~1 short call per retry. Estimate: ~15–25 min on dev, ~45–75 min on eval.
+- **Steps.**
+  - [x] `sqlchecks.py` (detectors + NULL guard), 19 detector tests + 4 correction-loop tests (87 total pass). A test caught a scoping bug: a subquery's `IS NOT NULL` had been counted for the outer ORDER BY.
+  - [x] Gold-SQL firing rates on the query-log pool (1,035): null_order 0.7%, null_min 0.2%, minmax_subquery 2.6%, concat 1.1%. All four are under 10%, so all are kept.
+  - [x] Correction loop in `pipeline.py` (`checks`, `check_retries`), per candidate before the vote. Defaults are byte-identical (C4/C6-vote rows all cache hits).
+  - [x] Dev run (3.2 min): checks fire on 1–2 of 30 questions per config; every correction did what was asked (adds `IS NOT NULL`, or switches to ORDER BY … LIMIT 1); 1 fixed / 0 broke overall. Wording frozen unchanged. Eval run started.
+  - [x] Eval: C7 41.3 / 59.3 vs C6-vote 40.0 / 58.7 (2/0 and 1/0 flips, n.s.); all fixes from `concat`; 0 regressions. Full pipeline C1 → C7 +8.7 pp (p = 0.035, Holm 0.14). Written up in `docs/results.md` §05 and D20.
+
+#### C6 spec — 3 candidates + majority vote (paper §4, written 2026-11-17)
+Paper §4: three candidates, diversified by "changing the LLM randomization seed" and "randomizing the order of the (schema linking-reduced) schema fields"; each is executed, results become sets, and if two agree one of them is chosen, else one is picked at random.
+- **Parent is C4, not C5.** Few-shot gave no gain on eval and is dropped (results §03), so C6 = C4 + voting. That keeps C6 one change from the best non-oracle config. (Deviation from the original ladder, recorded as D19.)
+- **Candidates.** Linking runs once and is shared (cache hits from 02). Candidate 1 is exactly C4's final call (cache hit). Candidates 2 and 3 use the same linked columns with the column order shuffled within each table (`shuffle_seed` 1, 2) and LLM seeds 43, 44.
+- **Temperature.** With temperature 0, a seed change does nothing (greedy decoding), so the paper's "seed" source needs sampling. Fixed a priori, not tuned: T = 0.7 for candidates 2–3 (Qwen's recommended non-thinking setting); candidate 1 stays at 0. The sub-ablation `C6-shuffle` keeps T = 0 for all three, isolating the order-shuffle source.
+- **Vote.** Execute each candidate read-only with a fixed 30 s timeout (no gold-derived timeout, so nothing about the gold query reaches selection). Errors and timeouts don't vote. Group by `set(rows)` (BIRD's EX equality). Pick the largest group; on a tie, the group containing the lowest-numbered candidate. If none executes, return candidate 1. Deviation: the paper breaks ties at random; ours falls back to the C4 answer, so every C6-vs-C4 difference comes from an actual majority.
+- **Diagnostics** (provider metadata, never in a prompt): all candidate SQLs, vote group sizes, which candidate won, `vote_unanimous`. Analysis adds **pass@3** (any candidate correct) as the ceiling for a perfect selector, the analogue of the linking oracle.
+- **Config** `promptfoo/configs/04_voting.yaml`, ± hints: C4-linked (parent, cached), C6-vote (shuffle + T 0.7), C6-shuffle (shuffle, T 0).
+- **Cost.** 2 extra short final calls per question per config (~1–2K prompt tokens each). Estimate: about 1 h on eval, 15 min on dev.
+- **Steps.**
+  - [x] Implement `voting.py` (`pick`, `vote`) and the candidate loop in `pipeline.py` (`votes`, `vote_temperature`; `shuffle_seed` through `build_messages`). Defaults keep C0–C5 prompts and cache keys byte-identical.
+  - [x] Tests (`tests/test_voting.py`, 64 total pass): majority, tie → candidate 0, failures don't vote, row-order-insensitive grouping, candidate 0 = C4's exact call, seeds/temperatures, shuffled schema = same lines reordered.
+  - [x] Dev run (sanity only, nothing tuned), 19 min: candidate 0 reproduces C4 exactly (40.0 / 53.3). C6-vote 46.7 / 60.0 (3 fixed, 1 broke each; n.s.); C6-shuffle 40.0 / 53.3. pass@3 66.7 / 63.3. Valid SQL 90 → 100%. Combined pass fully cached, 0 fallbacks, max candidate exec 4.4 s.
+  - [x] Eval run: 94 min, 0 errors, combined pass fully cached, 0 linking fallbacks. C6-vote 40.0 / 58.7 vs C4 39.3 / 56.7 (n.s.); C6-shuffle 39.3 / 60.7 (+h: 6 fixed / 0 broke, p = 0.031, not significant after Holm over 4 tests). pass@3 46.7 / 62.7. Valid SQL 94.7 → 99.3% (p = 0.016).
+  - [x] Analysis written up in `docs/results.md` §04 and D19.
 
 #### Dev check of C4/C5 (n=30, 2026-11-16; sanity only, nothing here is significant)
 - **02 linking:** C3 30.0 → C4 40.0 → oracle 56.7 (no hints); with hints 43.3 → 53.3 → 56.7. Link recall 0.93, ~6 linked columns. C4 costs 6.2 calls, 18.5K prompt tok, ~56 s per question (vs 1 call, 8.6K, ~18 s for C3). The oracle is a single 725-token call. 0 errors.

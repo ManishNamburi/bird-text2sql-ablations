@@ -89,3 +89,74 @@ Eight retrieved examples go into C4's final call (D16). Two pools: **train** (ot
 - **Drop few-shot** for this model: it adds ~1,000 tokens/question for no gain. Inline framing makes it actively harmful.
 - **Keep linking only if recall improves.** Today it costs 7.6× the time for a non-significant +4.7 pp. The oracle's 53.3% at 748 tokens shows the payoff available from a better linker, for example the higher recall the paper gets from GPT-4o.
 - **Cheapest strong config so far:** C1 (BIRD metadata, full schema, 1,910 tokens, 3.1 s/question) is statistically tied with C4 (18,387 tokens, 40.8 s): C1 → C4 is +6.7 pp (21 fixed, 11 broke, p = 0.11), or +5.3 pp with hints (p = 0.24). C4 is ~10× the tokens and ~13× the time for a gain this test can't confirm.
+
+---
+
+## Experiment 04 — Three candidates + majority vote (paper §4)
+
+C6 = C4 + voting (D19). Candidate 0 is C4's own answer. Candidates 1–2 see the linked columns in a shuffled order, and in **C6-vote** they also sample (seeds 43/44, T = 0.7). In **C6-shuffle** all three stay at T = 0, so the shuffle is the only source of diversity. Each candidate is executed, and the largest group of identical result sets wins. With no majority, C4's answer stands. The paper reports its voting only as part of the full pipeline, never isolated.
+
+| Config | EX no hints | EX with hints | Valid SQL (no hints / hints) | pass@3 (no hints / hints) | Unanimous | Prompt tok/q | sec/q |
+|---|---|---|---|---|---|---|---|
+| C4 (parent) | 39.3 (32–47) | 56.7 (49–64) | 94.7% / 94.7% | — | — | 18,387 | 40.8 |
+| C6-vote | 40.0 (33–48) | 58.7 (51–66) | 99.3% / 96.7% | 46.7 / 62.7 | 54% / 63% | 20,252 | 49.7 |
+| C6-shuffle | 39.3 (32–47) | 60.7 (53–68) | 97.3% / 97.3% | 42.0 / 62.0 | 65% / 77% | 20,252 | 49.6 |
+
+*pass@3 = at least one candidate is correct: the ceiling for a perfect selector. Unanimous = all three executed and returned the same rows.*
+
+### Findings
+
+1. **Voting barely moves accuracy.** C4 → C6-vote is +0.7 pp without hints (2 fixed, 1 broke, p = 1.0) and +2.0 pp with hints (4 / 1, p = 0.38). The dev slice had shown +6.7 pp on 4 flips; on 150 questions it shrinks to noise, the same pattern as few-shot in experiment 03.
+2. **What voting reliably does is remove invalid SQL.** Valid SQL goes from 94.7% to 99.3% without hints (7 questions gained, 0 lost, p = 0.016). A query that errors can't win a vote, so a broken candidate 0 gets replaced. But most of the replacements still return the wrong rows, so EX barely moves.
+3. **Shuffle-only with hints is the one significant gain, and it needs a caveat.** C4+h → C6-shuffle+h is +4.0 pp (6 fixed, 0 broke, p = 0.031). In all six, candidate 1 (the first shuffled order) won. The fixes look real: an escaped `Women''s` that C4 got wrong, `strength > 70` where the hint asks for `overall_rating > 70`, a spurious `OR` condition. But this is one of four C4 → C6 comparisons, and after a Holm correction it is not significant (adjusted p = 0.125). Treat it as a lead, not a result.
+4. **Sampling makes candidates worse, not just more varied.** At T = 0.7, candidate 1 alone scores 35.3% (no hints) and 52.0% (with hints), below C4's 39.3 / 56.7. At T = 0, the shuffled candidates stay at C4's level (36.0–38.0 / 58.7–60.0). Sampling triples the distinct SQL (2.4 per question vs 1.7–2.0 for shuffle) but adds mostly wrong alternatives. A 9B model at T = 0.7 is a weaker generator, not a more diverse correct one.
+5. **The selector is the bottleneck, not the candidates.** pass@3 is 46.7% (no hints) against 40.0% for the vote, so a perfect selector would gain another 6.7 pp from the same three candidates. Majority voting with three noisy candidates rarely overturns the parent: the winner differs from candidate 0 on only 7–11% of questions. That is the gap C7's SQL sanity checks are meant to close.
+6. **Cost is moderate:** +2 short calls per question, +1,865 prompt tokens (+10%) and +9 s/question (+22%) over C4. Linking is still most of the cost. Executing candidates is cheap (76–474 ms per question on average), but a few candidates hit the 30 s vote timeout.
+
+### Answer to "can we trim the prompt?" (after 04)
+Voting adds no prompt sections, only calls, so it doesn't change the trimming picture. It isn't worth its 22% time cost for accuracy (n.s.), but it is a cheap way to eliminate execution errors. If one configuration were deployed today, C1 (1,910 tokens, 3.1 s) is still the value pick: C1 → C4 wasn't significant (p = 0.11), and voting adds at most 2 pp on top of C4.
+
+---
+
+## Experiment 05 — SQL sanity checks + correction (paper §4)
+
+The paper's four checks (D20) run on every candidate:
+- an ascending sort on a column that holds NULLs, with no filter excluding them;
+- `MIN()` on such a column;
+- min/max via a nested subquery instead of `ORDER BY … LIMIT 1`;
+- string concatenation of fields in the output.
+
+A flagged candidate gets up to three correction calls at T = 0. **C7** = C6-vote + checks (the paper's order: check, then vote). **C4-checked** = C4 + checks, which isolates the checks from voting. The detectors were calibrated on query-log gold SQL, never on eval. Each fires on ≤ 2.6% of gold queries.
+
+| Config | EX no hints | EX with hints | Questions where a check fired (no hints / hints) | fixed / broke vs parent | Prompt tok/q | sec/q |
+|---|---|---|---|---|---|---|
+| C4 | 39.3 (32–47) | 56.7 (49–64) | — | — | 18,387 | 40.8 |
+| C4-checked | 40.7 (33–49) | 57.3 (49–65) | 9 / 14 | 2 / 0 and 1 / 0 | 18,477 | 41.2 |
+| C6-vote | 40.0 (33–48) | 58.7 (51–66) | — | — | 20,252 | 49.7 |
+| C7 | **41.3** (34–49) | **59.3** (51–67) | 12 / 16 | 2 / 0 and 1 / 0 | 20,523 | 50.9 |
+
+### Findings
+
+1. **The checks rarely fire, and almost never matter.** A check fired on 6–11% of questions. A correction changed the SQL on nearly all of them, but changed the *answer* on only 2 (no hints) or 1 (with hints). C6-vote → C7 is +1.3 / +0.7 pp (2 fixed / 0 broke, p = 0.50; 1 / 0, p = 1.0). The same holds for C4 → C4-checked.
+2. **Concatenation is the only check that pays.** All three fixes came from `concat`: the model wrote `first_name || ' ' || last_name AS full_name`, and BIRD's gold returns the two columns separately. That is the paper's "apparent preferences of the authors" check, and it works exactly as described.
+3. **The other checks change SQL but not results.**
+   - `null_order` added `IS NOT NULL` on 3–4 questions. None of those changes flipped a question.
+   - `minmax_subquery` fired on 4–9 questions. The model often rewrote the query but kept the subquery, so the flag remained after three retries: 14 candidates for C7+hints, costing 29 calls. Where it did switch to `ORDER BY … LIMIT 1`, no question flipped.
+   - `null_min` never fired. SQLite's `MIN` already skips NULLs, so this check is close to vacuous here (D20).
+4. **No check broke anything.** That's 0 regressions across 51 flagged questions × configs. Rejecting revisions that fail to execute meant a correction never introduced an error, and the checks are narrow by construction.
+5. **Cheap:** C7 costs +271 prompt tokens and +1.2 s/question over C6-vote (+2.4%). The corrections ride on short linked-schema prompts.
+
+### The full pipeline (C7) against the single-call configs
+
+| Comparison | Δ EX no hints | p | Δ EX with hints | p | Cost ratio (time) |
+|---|---|---|---|---|---|
+| C3 (fused, full schema) → C7 | +6.7 pp (18 fixed / 8 broke) | 0.076 | +6.0 pp | 0.14 | 9.4× |
+| C1 (BIRD metadata, full schema) → C7 | +8.7 pp (23 / 10) | 0.035 | +8.0 pp | 0.073 | 16× |
+
+Stacking every technique (profiling metadata, linking, voting, checks) gives +6 to +9 pp over a single call, and the paired CIs barely exclude zero. These four comparisons were chosen *after* seeing the per-step results. C1 → C7 is the only one under 0.05, and it doesn't survive a Holm correction over the four (adjusted p = 0.14). The honest summary: the full pipeline is probably better, by single digits, at 9–16× the time.
+
+### Answer to "can we trim the prompt?" (after 05)
+- **Keep the concatenation check:** it's a cheap AST check that fixes for a real BIRD convention, with zero regressions.
+- **Drop `null_min`:** it can't fire usefully in SQLite.
+- **`null_order` and `minmax_subquery` can go** for this model. They cost calls and fixed nothing on 150 questions.
+- **Overall:** for a 9B local model, BIRD metadata on a full schema (C1, 1,910 tokens, 3.1 s) gets about 80% of the full pipeline's accuracy (32.7 vs 41.3) at 6% of its time. The linking oracle (53.3 at 748 tokens) shows where the next real gain is: recall of the right columns, not more calls on top of the wrong ones.

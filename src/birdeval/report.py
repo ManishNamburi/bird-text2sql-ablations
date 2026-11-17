@@ -43,6 +43,13 @@ def load_results(path: str | Path) -> pd.DataFrame:
             "latency_ms": meta.get("latency_ms", 0),
             "link_recall": meta.get("link_recall"),
             "link_size": meta.get("link_size"),
+            "vote_sqls": meta.get("vote_sqls"),
+            "vote_winner": meta.get("vote_winner"),
+            "vote_unanimous": meta.get("vote_unanimous"),
+            "vote_distinct_sql": meta.get("vote_distinct_sql"),
+            "check_fired": meta.get("check_fired"),
+            "check_calls": meta.get("check_calls"),
+            "check_changed": meta.get("check_changed"),
             "sql": resp.get("output", ""),
         })
     return pd.DataFrame(rows)

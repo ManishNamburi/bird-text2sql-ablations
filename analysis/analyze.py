@@ -39,6 +39,60 @@ def paired(df, a: str, b: str, n_boot: int = 10_000, seed: int = 0) -> dict:
             "sig@0.05": "yes" if p < 0.05 else "no"}
 
 
+def voting_table(df, labels: list[str]):
+    """C6 diagnostics. pass@k = any candidate is correct: the ceiling for a perfect selector
+    (uses gold rows, so analysis-only - selection itself never sees them)."""
+    import pandas as pd
+
+    from birdeval.sqlexec import score_question
+
+    rows = []
+    for config in labels:
+        g = df[(df["config"] == config) & df["vote_sqls"].notna()]
+        if g.empty:
+            continue
+        k = len(g["vote_sqls"].iloc[0])
+        cand_ok = [[score_question(r.question_id, r.db_id, s).match for s in r.vote_sqls]
+                   for r in g.itertuples()]
+        rows.append({
+            "config": config,
+            "EX % (voted)": round(100 * g["ex"].mean(), 1),
+            "EX % candidate 0 (= parent)": round(100 * sum(c[0] for c in cand_ok) / len(g), 1),
+            **{f"EX % candidate {i}": round(100 * sum(c[i] for c in cand_ok) / len(g), 1) for i in range(1, k)},
+            f"pass@{k} %": round(100 * sum(any(c) for c in cand_ok) / len(g), 1),
+            "unanimous %": round(100 * g["vote_unanimous"].mean(), 1),
+            "winner ≠ candidate 0 %": round(100 * (g["vote_winner"] != 0).mean(), 1),
+            "distinct SQL/q": round(g["vote_distinct_sql"].mean(), 2),
+        })
+    return pd.DataFrame(rows) if rows else None
+
+
+def checks_table(df, labels: list[str]):
+    """C7 diagnostics, per checked config and check type, against the previous config in YAML
+    order (its parent: C4-checked <- C4-linked, C7 <- C6-vote). On the questions where a check
+    fired: how often a correction changed the SQL, and EX fixed / broke vs the parent."""
+    import pandas as pd
+
+    from birdeval.sqlchecks import CHECKS
+
+    wide = df.pivot_table(index="question_id", columns="config", values="ex")
+    rows = []
+    for i, config in enumerate(labels):
+        g = df[(df["config"] == config) & df["check_fired"].notna()]
+        if g.empty or i == 0:
+            continue
+        parent = labels[i - 1]
+        for check in (*CHECKS, "any"):
+            hit = g[g["check_fired"].map(lambda f: bool(f) if check == "any" else check in f)]
+            qids = hit["question_id"]
+            x, y = wide.loc[qids, parent], wide.loc[qids, config]
+            rows.append({"config": config, "parent": parent, "check": check,
+                         "questions fired": len(hit), "SQL changed": int(hit["check_changed"].sum()),
+                         "correction calls": int(hit["check_calls"].sum()),
+                         "fixed": int(((y == 1) & (x == 0)).sum()), "broke": int(((x == 1) & (y == 0)).sum())})
+    return pd.DataFrame(rows) if rows else None
+
+
 def default_pairs(labels: list[str]) -> list[tuple[str, str]]:
     base = [lbl for lbl in labels if not lbl.endswith("+hints")]
     hinted = [lbl for lbl in labels if lbl.endswith("+hints")]
@@ -69,16 +123,28 @@ def main() -> None:
     comp = pd.DataFrame([paired(df, x, y) for x, y in pairs])
     summary = summarize(df, order=labels)
     n_q = df["question_id"].nunique()
+    votes = voting_table(df, labels)
+    chk = checks_table(df, labels)
+    chk_md = ("## SQL-check diagnostics\n\nPer check, on the questions where it fired in any candidate. "
+              "`fixed` / `broke` are EX against the parent config on those questions.\n\n"
+              + chk.to_markdown(index=False) + "\n\n") if chk is not None else ""
+    vote_md = ("## Voting diagnostics\n\n`pass@k` = any candidate correct (perfect-selector ceiling). "
+               "`unanimous` = all candidates executed and returned the same rows.\n\n"
+               + votes.to_markdown(index=False) + "\n\n") if votes is not None else ""
 
     out = ROOT / "results" / f"{a.results.stem}_analysis.md"
     out.write_text(
         f"# {a.results.stem}: paired analysis ({n_q} questions)\n\n"
         "## Accuracy and cost per config\n\n" + summary.to_markdown(index=False) + "\n\n"
-        "## Paired comparisons\n\n"
+        + vote_md + chk_md + "## Paired comparisons\n\n"
         "`fixed` = questions only the second config gets right; `broke` = only the first. "
         "McNemar exact test on those discordant questions; bootstrap CI resamples questions (10,000×).\n\n"
         + comp.to_markdown(index=False) + "\n")
     print(summary.to_string(index=False), "\n")
+    if votes is not None:
+        print(votes.to_string(index=False), "\n")
+    if chk is not None:
+        print(chk.to_string(index=False), "\n")
     print(comp.to_string(index=False))
     print(f"\n-> {out.relative_to(ROOT)}")
 

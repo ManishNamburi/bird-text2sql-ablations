@@ -178,3 +178,34 @@ A review of promptfoo 0.125.1 against this setup (2026-11-16). Each claim below 
   - *Python test generators:* frozen, committed YAML fits "freeze the eval set" better.
   - *`extensions` hooks:* the `afterAll` return value isn't saved, so `analysis/analyze.py` stays separate.
   - *OTLP tracing:* per-call timelines for linking would be nice in the viewer, but they need OpenTelemetry packages. Possible for Phase 5.
+
+## D19 — Voting (C6): parent config, diversity, and the vote rule
+Paper §4: three candidates, diversified by "changing the LLM randomization seed" and by "randomizing the order of the (schema linking-reduced) schema fields". Each is executed, results become sets, two agreeing candidates win, else one is picked at random. Implementation: `src/birdeval/voting.py`, `PipelineConfig.votes` / `vote_temperature`, config `04_voting.yaml` (2026-11-17).
+- **Parent is C4, not C5.** The original ladder stacked voting on few-shot. On eval, few-shot gave no gain (querylog-sep = C4 exactly; train-sep −8 pp with hints), so C6 = C4 + voting. That keeps C6 one change from the best non-oracle config.
+- **Candidate 0 is exactly C4's final call** (same messages, seed, T = 0), so it is a cache hit and the parent's answer is always on the ballot. Candidates 1..k−1 shuffle column order within each table (`shuffle_seed = i`) and use seed 42 + i.
+- **Temperature 0.7 for candidates 1..k−1, fixed a priori.** At T = 0 decoding is greedy and a seed change does nothing, so the paper's "seed" diversity needs sampling. 0.7 is Qwen's recommended non-thinking setting. Not tuned on dev or eval. The sub-ablation `C6-shuffle` (T = 0) measures how much diversity the order shuffle alone gives.
+  - *Tradeoff:* this breaks "temperature 0 everywhere", which the project rule limits to single-candidate runs. Results stay reproducible because the seed is fixed and every reply is cached.
+- **Vote rule:** execute read-only with a fixed 30 s timeout. A gold-derived timeout (as the EX scorer uses) would let the gold query's runtime influence selection. Failed candidates don't vote. Group by `frozenset(rows)`, BIRD's EX equality. The largest group wins; ties go to the group with the lowest index; if nothing executes, candidate 0.
+  - *Deviation:* the paper breaks ties at random. Ours falls back to the C4 answer, so every C6-vs-C4 difference comes from an actual majority, and runs are deterministic.
+- **Diagnostics** (metadata only, never in a prompt): candidate SQLs, group sizes, winner, unanimity, distinct-SQL count. Analysis adds **pass@k**: any candidate correct, scored against gold. It is the ceiling for a perfect selector, the selection analogue of oracle linking.
+- **Cost:** k − 1 extra final calls, short because they run on the linked schema. Candidate execution time is added to `latencyMs`.
+
+## D20 — SQL sanity checks (C7): detectors, calibration, correction loop
+Paper §4: candidates are checked for "SQL constructions that are likely to indicate an incorrect response". On a hit, "the LLM is asked for a correction with up to three retries". Then the vote. Implementation: `src/birdeval/sqlchecks.py`, `pipeline.correct`, `PipelineConfig.checks` / `check_retries`, config `05_checks.yaml` (2026-11-17).
+- **The paper's four checks, as sqlglot detectors.** Aliases and unqualified columns resolve to base tables through the linking qualifier. Each check is scoped to its own SELECT, so a subquery's filter doesn't cover the outer query (a test caught that bug).
+  - `null_order`: `ORDER BY f` ascending.
+  - `null_min`: `MIN(f)` in the select list.
+  - Both fire only when no predicate in that SELECT's WHERE/ON/HAVING already rules out NULL for f (`IS NOT NULL`, or a comparison like `f > x`).
+  - `minmax_subquery`: `= / IN (SELECT MAX|MIN(...))`.
+  - `concat`: `||` or CONCAT over fields in the output.
+- **NULL guard (deviation):** the two NULL checks fire only if f actually holds NULLs in the database. Otherwise a correction can't change the result and only costs a call.
+  - Note: SQLite's `MIN()` already ignores NULLs, so `null_min` can change a result only in edge cases. It's kept because the paper names it, and its effect is reported separately.
+- **Calibrated on the query-log pool, never on eval:** the detectors were run over the gold SQL of the 1,035 BIRD dev questions outside MiniDev (same 11 DBs). A check firing on more than 10% of gold queries would encode a style BIRD's authors don't share; that threshold was fixed before looking. Firing rates: `null_order` 0.7%, `null_min` 0.2%, `minmax_subquery` 2.6%, `concat` 1.1%, so all four are kept.
+- **Correction loop**, per candidate and before the vote:
+  - Each retry sends the candidate's own messages, the current SQL as an assistant turn, and a user turn listing every check that fired. T = 0, same seed as the candidate.
+  - After a revision, the checks run again, up to 3 retries.
+  - A revision that fails to execute is rejected while the current SQL runs, because a correction must not create an error.
+  - The loop stops when a revision is rejected or unchanged, since a T = 0 retry would only repeat it.
+  - The original SQL, the checks that fired, the retries and the final SQL go to metadata.
+- **Configs**, both one change from their parent: C7 = C6-vote + checks (C6-vote was the pre-registered C6; picking C6-shuffle after its eval result would be selection on eval), and C4-checked = C4 + checks, which isolates the checks from voting.
+- *Tradeoff:* checks only see what they're written for. On this model they may fire rarely, in which case C7 ≈ C6 by construction. The firing rate is reported first so that "no effect" can be told apart from "rarely triggered".

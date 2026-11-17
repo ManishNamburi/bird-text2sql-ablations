@@ -1,0 +1,51 @@
+# Experiment 05 — SQL sanity checks + correction (paper §4), D20.
+#   C4-checked: C4 + checks (single candidate): what the checks do on their own
+#   C7:         C6-vote + checks on every candidate before the vote (paper order)
+# Checks: ascending ORDER BY / MIN on a column that holds NULLs with no NULL-excluding filter,
+# min/max via nested subquery, string concatenation in the output. Up to 3 correction calls
+# per flagged candidate, T = 0. Parents (C4-linked, C6-vote) are cache hits from 02/04.
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/05_checks.yaml --split dev
+description: "05 SQL checks: C4 vs C4+checks, C6-vote vs C7 (C6-vote + checks), hints on/off"
+
+prompts:
+  - "{{question}}" # unused by the pipeline provider; it builds its own prompts from vars
+
+providers:
+  - id: file://../providers/pipeline.py
+    label: C4-linked
+    config: { metadata: fused, hints: false, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C4-checked
+    config: { metadata: fused, hints: false, linking: llm, checks: true }
+  - id: file://../providers/pipeline.py
+    label: C6-vote
+    config: { metadata: fused, hints: false, linking: llm, votes: 3, vote_temperature: 0.7 }
+  - id: file://../providers/pipeline.py
+    label: C7
+    config: { metadata: fused, hints: false, linking: llm, votes: 3, vote_temperature: 0.7, checks: true }
+  - id: file://../providers/pipeline.py
+    label: C4-linked+hints
+    config: { metadata: fused, hints: true, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C4-checked+hints
+    config: { metadata: fused, hints: true, linking: llm, checks: true }
+  - id: file://../providers/pipeline.py
+    label: C6-vote+hints
+    config: { metadata: fused, hints: true, linking: llm, votes: 3, vote_temperature: 0.7 }
+  - id: file://../providers/pipeline.py
+    label: C7+hints
+    config: { metadata: fused, hints: true, linking: llm, votes: 3, vote_temperature: 0.7, checks: true }
+
+# Per-config percentages in the web viewer and JSON (named scores are summed per column;
+# __count = tests in the column). CIs and paired tests stay in analysis/analyze.py.
+derivedMetrics:
+  - name: EX_pct
+    value: 100 * ex / __count
+  - name: valid_sql_pct
+    value: 100 * valid_sql / __count
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex

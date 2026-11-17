@@ -24,7 +24,8 @@ def call_api(prompt, options, context):
     calls = result.calls
     prompt_tokens = sum(c.prompt_tokens for c in calls)
     completion_tokens = sum(c.completion_tokens for c in calls)
-    latency_ms = round(sum(c.total_ms for c in calls))
+    # LLM time of the original calls, plus executing the candidates when voting (C6).
+    latency_ms = round(sum(c.total_ms for c in calls) + result.extra.get("vote_exec_ms", 0))
     return {
         "output": result.sql,
         # Shown by the web viewer as "Actual Prompt Sent" (the YAML prompt is a placeholder).

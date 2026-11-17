@@ -30,6 +30,7 @@ Rules learned while working on this project. Review at session start.
 - promptfoo iterates `for test: for provider:`. Never run several local-LLM configs interleaved; warm up one config at a time.
 - promptfoo's `latencyMs` is ~0 on cache hits. Report timings stored with the original call.
 - Never trust result order in promptfoo's JSON export. Order by the config's label list.
+- **Several tests at once need a correction before one of them is called significant.** In experiment 04, one of four C4 → C6 comparisons hit p = 0.031 (Holm-adjusted 0.125). Report the raw p, the number of tests, and the adjusted p together, and call a lone hit a lead, not a result. (2026-11-17)
 
 ## Corrections from the user
 _(none yet)_

@@ -1,0 +1,46 @@
+# Experiment 04 — three candidates + majority vote on top of schema linking (C4 -> C6), paper §4.
+# Parent is C4, not C5: few-shot gave no gain on eval (docs/results.md §03, D19).
+#   C6-vote:    candidate 0 = C4's final call (cache hit); candidates 1-2 shuffle the linked
+#               columns' order (shuffle_seed 1, 2) and sample with seeds 43, 44 at T = 0.7
+#   C6-shuffle: same, but T = 0 for all: only the column-order shuffle adds diversity
+# Vote: execute each candidate (30 s), group by result set, largest group wins; with no
+# majority, candidate 0 (= C4's answer). Linking drafts are cache hits from 02.
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/04_voting.yaml --split dev
+description: "04 voting: C4 vs 3 candidates + majority vote (shuffle + sampling) vs shuffle only"
+
+prompts:
+  - "{{question}}" # unused by the pipeline provider; it builds its own prompts from vars
+
+providers:
+  - id: file://../providers/pipeline.py
+    label: C4-linked
+    config: { metadata: fused, hints: false, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C6-vote
+    config: { metadata: fused, hints: false, linking: llm, votes: 3, vote_temperature: 0.7 }
+  - id: file://../providers/pipeline.py
+    label: C6-shuffle
+    config: { metadata: fused, hints: false, linking: llm, votes: 3, vote_temperature: 0 }
+  - id: file://../providers/pipeline.py
+    label: C4-linked+hints
+    config: { metadata: fused, hints: true, linking: llm }
+  - id: file://../providers/pipeline.py
+    label: C6-vote+hints
+    config: { metadata: fused, hints: true, linking: llm, votes: 3, vote_temperature: 0.7 }
+  - id: file://../providers/pipeline.py
+    label: C6-shuffle+hints
+    config: { metadata: fused, hints: true, linking: llm, votes: 3, vote_temperature: 0 }
+
+# Per-config percentages in the web viewer and JSON (named scores are summed per column;
+# __count = tests in the column). CIs and paired tests stay in analysis/analyze.py.
+derivedMetrics:
+  - name: EX_pct
+    value: 100 * ex / __count
+  - name: valid_sql_pct
+    value: 100 * valid_sql / __count
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex
