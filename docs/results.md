@@ -160,3 +160,39 @@ Stacking every technique (profiling metadata, linking, voting, checks) gives +6 
 - **Drop `null_min`:** it can't fire usefully in SQLite.
 - **`null_order` and `minmax_subquery` can go** for this model. They cost calls and fixed nothing on 150 questions.
 - **Overall:** for a 9B local model, BIRD metadata on a full schema (C1, 1,910 tokens, 3.1 s) gets about 80% of the full pipeline's accuracy (32.7 vs 41.3) at 6% of its time. The linking oracle (53.3 at 748 tokens) shows where the next real gain is: recall of the right columns, not more calls on top of the wrong ones.
+
+---
+
+## Experiment 06 — Prompt trimming T1–T4 (research question 4)
+
+Each trim removes one prompt section from **C3** (fused metadata, full schema, one call), the config whose cost *is* its metadata block. C7 was the planned base, but linking is ~90% of its tokens and no trim touches linking (D21). Star design: every trim is one flag away from C3. C3 was re-run inside 06 and matched experiment 01 row for row (0 new LLM calls).
+
+| Trim | What is removed | Δ EX no hints (95% CI) | Δ EX with hints (95% CI) | Prompt tok/q | sec/q | Verdict |
+|---|---|---|---|---|---|---|
+| C3 | — | 34.7 | 53.3 | 8,112 | 5.4 | base |
+| T1 | long → short profile summaries | +0.7 (−6.0 to +7.3) | −2.0 (−8.0 to +4.7) | 4,546 (−44%) | 4.5 | inconclusive |
+| T2 | example values in the profile summaries, masked as `'…'` | −6.7 (−13.3 to +0.0) | **−10.7** (−16.7 to −4.7), Holm p = 0.012 | 7,258 (−11%) | 5.0 | **hurts** |
+| T3 | BIRD value descriptions | −1.3 (−6.7 to +4.0) | −3.3 (−8.0 to +1.3) | 7,483 (−8%) | 5.1 | inconclusive |
+| T4 | system prompt → one line (format instruction kept) | +4.0 (−1.3 to +9.3) | −1.3 (−6.0 to +3.3) | 8,061 (−1%) | 5.7 | inconclusive |
+
+*Δ = trim − C3, paired bootstrap CI. Holm adjustment over all 8 tests; only T2 with hints survives it (raw p = 0.002; without hints raw p = 0.064). Verdict rule, fixed before the eval run: **safe** = CI lower bound above −5 pp in both hint settings; **hurts** = Holm p < 0.05 with Δ < 0; else **inconclusive**.*
+
+### Findings
+
+1. **The example values are what profiling contributes.** Masking the quoted literals in the profile summaries, while keeping their counts, lengths and formats, costs −6.7 / −10.7 pp. With hints that's 20 questions broken against 4 fixed. Of the first 8 broken questions read, 4 are wrong literal formats that the masked values would have shown:
+   - qid 93: `'north Bohemia'` for `'North Bohemia'`;
+   - qid 346: `'legal'` for `'Legal'`;
+   - qid 47: a district-type label where the column holds the code `'52'`;
+   - qid 487: the set name `'Coldsnap'` compared against a set-code column.
+
+   No SQL contained the placeholder itself. This is the paper's core argument for profiling (§2: literal formats are what SME documentation lacks), here measured directly.
+2. **Masked profiles score *below* no profiles.** T2 is under C1, which has BIRD descriptions and no profiles at all: −4.7 pp without hints, −8.7 pp with hints (raw p = 0.041). This comparison wasn't pre-registered, so it's a lead. A plausible reading: the masked summaries keep saying "this column holds specific literals" without saying which, and the model guesses, at 3.8× C1's tokens.
+3. **Short profiles cost nothing measurable and save 44% of the prompt.** T1 drops 3,566 tokens and 0.9 s per question, and its point estimates are +0.7 / −2.0. Valid SQL rises from 88.7% to 92.7%, consistent with experiment 01's finding that long prompts lead the model to the wrong table. Half the short summaries (403 of 798) still quote at least one value (e.g. "either 'D' or 'S'"), so T1 keeps much of what finding 1 says matters. But the CI lower bounds (−6.0 / −8.0) don't clear the −5 pp margin, so by the pre-registered rule T1 is **inconclusive**, not safe.
+4. **BIRD value descriptions and the system rules: no measurable effect either way.** T3 (−8% tokens) is −1.3 / −3.3, and T4 is +4.0 / −1.3. T4 saves only 51 tokens, so "inconclusive" here mostly says the two rules (existing columns only; exactly the columns asked) don't move this model.
+5. **The margin was too tight for n = 150, and that's the main methodological lesson.** The paired CIs are ±4.7 to ±6.7 pp wide, so a trim with a true Δ of exactly 0 fails a −5 pp non-inferiority test about half the time or more. Only the 468-question test split (CIs about ±3.5 pp) could certify T1 or T3 as safe. I chose the margin by comparing it to the detectable effect size, when it needed to exceed the expected CI half-width (see `tasks/lessons.md`).
+
+### Answer to "can we trim the prompt?" (final)
+- **Don't trim the values out of profiles.** They are the part of profiling that carries the gain.
+- **Short profiles are the best trim candidate:** −44% tokens, a point estimate of ~0, and better SQL validity. They're not proven safe at n = 150; the test-split run would settle it.
+- **BIRD value descriptions and the system rules** can probably go, but the evidence is "no detectable effect", not "no effect".
+- **The cost picture doesn't change:** the biggest cost lever is still the C1-vs-C3 choice (24% of the tokens) and, above that, linking (experiment 02), not trimming sections inside one prompt.

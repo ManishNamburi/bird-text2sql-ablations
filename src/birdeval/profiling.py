@@ -153,6 +153,19 @@ def load_profiles(db_id: str) -> list[dict]:
     return json.loads(profiles_path(db_id).read_text())
 
 
+# A quoted literal in an LLM summary: opens after a non-word char, closes before one. An inner
+# apostrophe between letters stays inside ('St. Mary's Middle'); a possessive (school's) never
+# opens a literal, since its quote follows a letter.
+_LITERAL = re.compile(r"(?<![\w'])'(?:[^'\n]|(?<=\w)'(?=\w))*'(?!\w)")
+MASK = "'…'"
+
+
+def mask_literals(text: str) -> str:
+    """T2 trim: replace every quoted example value in a profile summary with a placeholder.
+    Counts, lengths and formats stay, so only the value information is removed."""
+    return _LITERAL.sub(MASK, text)
+
+
 @lru_cache(maxsize=None)
 def load_summaries(db_id: str, detail: str = "long") -> dict[tuple[str, str], str]:
     """LLM profile summaries (scripts/summarize_profiles.py) keyed for schema.render()."""

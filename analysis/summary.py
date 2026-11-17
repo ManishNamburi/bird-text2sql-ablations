@@ -7,6 +7,7 @@ can be recomputed without models, databases or promptfoo.
     EX with Wilson 95% CI, delta vs the previous step (paired bootstrap CI, exact McNemar),
     cost, and the paper's GPT-4o number where the paper reports one
   - pairwise McNemar matrix over the ladder, Holm-adjusted for the number of tests
+  - prompt trimming T1-T4 vs C3 with the pre-registered non-inferiority verdicts
   - every eval config (cost and accuracy)
   - figures: the ladder, and cost vs accuracy with the Pareto frontier
 
@@ -45,6 +46,15 @@ LADDER = [
     ("C7", "C7", "+ SQL sanity checks"),
 ]
 ORACLE = ("C4-oracle", "Oracle", "gold SQL's columns only (upper bound)")
+# Prompt trims (D21): each is one flag away from TRIM_BASE. (label, short name, what is removed)
+TRIM_BASE = "C3-fused"
+TRIMS = [
+    ("T1-short-profile", "T1", "long → short profile summaries"),
+    ("T2-masked-values", "T2", "example values in profile summaries masked"),
+    ("T3-no-bird-values", "T3", "BIRD value descriptions dropped"),
+    ("T4-minimal-system", "T4", "system prompt cut to one line"),
+]
+NONINFERIORITY_PP = -5.0  # pre-registered in tasks/todo.md before the eval run
 # Paper (GPT-4o), from the PDF: Table 1 (metadata) and Table 2 (schema linking). (no hints, hints)
 PAPER = {"C0-ddl": (49.8, None), "C1-bird": (59.6, 72.0), "C2-profile": (61.2, 72.6),
          "C3-fused": (63.2, 73.0), "C4-linked": (63.2, 73.0), "C4-oracle": (69.0, 77.4)}
@@ -117,6 +127,37 @@ def ladder_table(stats: pd.DataFrame, w: pd.DataFrame) -> str:
         paper = PAPER.get(config)
         cells += [f"{s.tok:,.0f}", f"{s.sec:.1f}",
                   " / ".join("—" if v is None else f"{v:.1f}" for v in paper) if paper else "not isolated"]
+        lines.append("| " + " | ".join(cells) + " |")
+    return head + "\n".join(lines) + "\n"
+
+
+def trimming_table(stats: pd.DataFrame, w: pd.DataFrame) -> str:
+    """Each trim vs C3, both hint settings: paired Δ with bootstrap CI, McNemar p Holm-adjusted over
+    all 2 × len(TRIMS) tests, and the pre-registered verdict."""
+    tests = [(c, h) for c, _, _ in TRIMS for h in (False, True)]
+    res = {t: paired(w, lbl(TRIM_BASE, t[1]), lbl(*t)) for t in tests}
+    adj = dict(zip(tests, multipletests([res[t]["p"] for t in tests], method="holm")[1]))
+    base = stats.loc[TRIM_BASE]
+    head = ("| Trim | What is removed | Δ EX no hints (95% CI) | fixed / broke, Holm p | "
+            "Δ EX with hints (95% CI) | fixed / broke, Holm p | Prompt tok/q (vs C3) | s/q | Verdict |\n"
+            "|---|---|---|---|---|---|---|---|---|\n")
+    lines = [f"| **C3** | base: fused metadata, full schema | {base.ex:.1f} | — | "
+             f"{stats.loc[lbl(TRIM_BASE, True)].ex:.1f} | — | {base.tok:,.0f} | {base.sec:.1f} | — |"]
+    for config, short, what in TRIMS:
+        cells = [f"**{short}**", what]
+        for h in (False, True):
+            r = res[(config, h)]
+            cells += [f"{r['delta']:+.1f} ({r['lo']:+.1f} to {r['hi']:+.1f})",
+                      f"{r['fixed']} / {r['broke']}, {fmt_p(adj[(config, h)], True)}"]
+        s = stats.loc[config]
+        rs = [res[(config, h)] for h in (False, True)]
+        if any(adj[(config, h)] < 0.05 and res[(config, h)]["delta"] < 0 for h in (False, True)):
+            verdict = "hurts"
+        elif all(r["lo"] > NONINFERIORITY_PP for r in rs):
+            verdict = "safe to trim"
+        else:
+            verdict = "inconclusive"
+        cells += [f"{s.tok:,.0f} ({100 * (s.tok / base.tok - 1):+.0f}%)", f"{s.sec:.1f}", verdict]
         lines.append("| " + " | ".join(cells) + " |")
     return head + "\n".join(lines) + "\n"
 
@@ -204,6 +245,8 @@ def ladder_figure(stats: pd.DataFrame) -> None:
 
 
 def _short(config: str) -> str:
+    if config.startswith("T") and config[1].isdigit():
+        return config[:2]
     for suffix in ("+hints", "-linked", "-fused", "-bird", "-ddl", "-profile"):
         config = config.replace(suffix, "")
     return config
@@ -211,7 +254,7 @@ def _short(config: str) -> str:
 
 # Label offsets (points) where frontier points crowd each other around 40-50 s.
 _OFFSETS = {"C4": (-24, -4), "C2": (-18, -14), "C3": (4, 6), "C4-checked": (-62, 6), "C7": (6, -4), "C6-vote": (6, -12),
-            "C6-shuffle": (-58, 4)}
+            "C6-shuffle": (-58, 4), "T1": (-22, 6)}
 
 
 def pareto_figure(stats: pd.DataFrame) -> None:
@@ -271,6 +314,12 @@ def main() -> None:
         f"{len(LADDER) + 1} × {len(LADDER)} / 2 = {(len(LADDER) + 1) * len(LADDER) // 2} pairs in that table. "
         "**Bold** = significant after adjustment.\n\n"
         "### No hints\n\n" + mcnemar_matrix(w, False) + "\n### With hints\n\n" + mcnemar_matrix(w, True) +
+        "\n## Prompt trimming on C3 (T1–T4, D21)\n\n"
+        "Each trim removes one prompt section from C3 (fused metadata, full schema, one call). "
+        f"Holm adjustment over the {2 * len(TRIMS)} tests in this table. Verdicts were fixed before the eval run: "
+        f"**safe to trim** = the 95% CI lower bound of Δ is above {NONINFERIORITY_PP:.0f} pp with and without hints; "
+        "**hurts** = Holm p < 0.05 with Δ < 0; otherwise **inconclusive**. Token and time columns are the no-hints "
+        "config.\n\n" + trimming_table(stats, w) +
         "\n## Every eval config\n\n" + all_configs_table(stats) +
         "\n![ladder](../docs/figures/ladder.png)\n\n![pareto](../docs/figures/pareto.png)\n")
     print(f"-> {OUT.relative_to(ROOT)}, {FIG.relative_to(ROOT)}/ladder.*, pareto.*")

@@ -11,6 +11,9 @@ Rules:
 - Return exactly the columns the question asks for, in the order asked, and nothing else.
 - Reply with only the SQL query in a ```sql code block."""
 
+# T4 trim: one line. Keeps only the output format, so SQL extraction is not what gets tested.
+SYSTEM_MINIMAL = "Write one SQLite query that answers the question. Reply with only the SQL query in a ```sql code block."
+
 
 def user_message(schema: str, question: str, evidence: str | None = None,
                  examples: str | None = None) -> str:

@@ -43,6 +43,18 @@ Cell = Δ EX in pp (column minus row), with the Holm-adjusted McNemar p over all
 | **C6** |  |  |  |  | +0.7 (1.000) | +2.7 (1.000) |
 | **C7** |  |  |  |  |  | +2.0 (1.000) |
 
+## Prompt trimming on C3 (T1–T4, D21)
+
+Each trim removes one prompt section from C3 (fused metadata, full schema, one call). Holm adjustment over the 8 tests in this table. Verdicts were fixed before the eval run: **safe to trim** = the 95% CI lower bound of Δ is above -5 pp with and without hints; **hurts** = Holm p < 0.05 with Δ < 0; otherwise **inconclusive**. Token and time columns are the no-hints config.
+
+| Trim | What is removed | Δ EX no hints (95% CI) | fixed / broke, Holm p | Δ EX with hints (95% CI) | fixed / broke, Holm p | Prompt tok/q (vs C3) | s/q | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| **C3** | base: fused metadata, full schema | 34.7 | — | 53.3 | — | 8,112 | 5.4 | — |
+| **T1** | long → short profile summaries | +0.7 (-6.0 to +7.3) | 14 / 13, p = 1.000 | -2.0 (-8.0 to +4.7) | 10 / 13, p = 1.000 | 4,546 (-44%) | 4.5 | inconclusive |
+| **T2** | example values in profile summaries masked | -6.7 (-13.3 to +0.0) | 7 / 17, p = 0.447 | -10.7 (-16.7 to -4.7) | 4 / 20, p = 0.012 | 7,258 (-11%) | 5.0 | hurts |
+| **T3** | BIRD value descriptions dropped | -1.3 (-6.7 to +4.0) | 7 / 9, p = 1.000 | -3.3 (-8.0 to +1.3) | 4 / 9, p = 1.000 | 7,483 (-8%) | 5.1 | inconclusive |
+| **T4** | system prompt cut to one line | +4.0 (-1.3 to +9.3) | 11 / 5, p = 1.000 | -1.3 (-6.0 to +3.3) | 6 / 8, p = 1.000 | 8,061 (-1%) | 5.7 | inconclusive |
+
 ## Every eval config
 
 | Config | Experiment | EX no hints (95% CI) | EX with hints (95% CI) | Valid SQL % (no hints) | LLM calls/q | Prompt tok/q | s/q |
@@ -60,6 +72,10 @@ Cell = Δ EX in pp (column minus row), with the Holm-adjusted McNemar p over all
 | C6-vote | 04_voting | 40.0 (33–48) | 58.7 (51–66) | 99.3 | 8.3 | 20,252 | 49.7 |
 | C4-checked | 05_checks | 40.7 (33–49) | 57.3 (49–65) | 94.7 | 6.4 | 18,477 | 41.2 |
 | C7 | 05_checks | 41.3 (34–49) | 59.3 (51–67) | 99.3 | 8.6 | 20,523 | 50.9 |
+| T3-no-bird-values | 06_trimming | 33.3 (26–41) | 50.0 (42–58) | 87.3 | 1.0 | 7,483 | 5.1 |
+| T1-short-profile | 06_trimming | 35.3 (28–43) | 51.3 (43–59) | 92.7 | 1.0 | 4,546 | 4.5 |
+| T2-masked-values | 06_trimming | 28.0 (21–36) | 42.7 (35–51) | 91.3 | 1.0 | 7,258 | 5.0 |
+| T4-minimal-system | 06_trimming | 38.7 (31–47) | 52.0 (44–60) | 90.0 | 1.0 | 8,061 | 5.7 |
 
 ![ladder](../docs/figures/ladder.png)
 

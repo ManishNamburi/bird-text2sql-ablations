@@ -20,7 +20,7 @@ import pandas as pd
 from birdeval.report import load_results
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPERIMENTS = ["01_metadata", "02_linking", "03_fewshot", "04_voting", "05_checks"]
+EXPERIMENTS = ["01_metadata", "02_linking", "03_fewshot", "04_voting", "05_checks", "06_trimming"]
 OUT = ROOT / "results" / "per_question.csv"
 COLUMNS = ["config", "experiment", "question_id", "db_id", "difficulty", "ex", "valid_sql",
            "prompt_tokens", "completion_tokens", "llm_calls", "latency_ms", "link_recall"]

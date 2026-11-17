@@ -70,11 +70,11 @@ Paper §4 extras (not ablated in the paper):
 Cross factor:
 - [x] **Hints (evidence) on/off** for every config (C0–C7) (the paper's main contrast).
 
-Prompt trimming (on the best non-oracle config):
-- [ ] **T1** long profile → short profile.
-- [ ] **T2** drop the sample/common values from profiles.
-- [ ] **T3** drop the BIRD value descriptions and keep only column descriptions.
-- [ ] **T4** strip the system instructions down to one line.
+Prompt trimming (on C3; the plan said the best non-oracle config, changed at check-in, D21):
+- [x] **T1** long profile → short profile (D21, `06_trimming.yaml`): inconclusive, −44% tokens.
+- [x] **T2** mask the example values in profile summaries: **hurts**.
+- [x] **T3** drop the BIRD value descriptions and keep only column descriptions: inconclusive.
+- [x] **T4** strip the system instructions down to one line: inconclusive.
 
 ## 4. Metrics captured per test (promptfoo named metrics)
 
@@ -148,6 +148,42 @@ Prompt trimming (on the best non-oracle config):
 - [x] C6 on eval (150): 94 min, 0 errors. See `docs/results.md` §04.
 - [x] C7 on eval (150): 15 min, 0 errors. See `docs/results.md` §05.
 
+#### T1–T4 spec — prompt trimming (written 2026-11-17; approved with C3 as the base)
+Research question 4: which prompt sections can go without a real accuracy loss, and what does each save?
+
+**Base config (decision for the check-in).** The plan said "the best non-oracle config", i.e. C7. Measured costs argue for C3:
+- Linking is ~90% of C7's 20.5K tokens and isn't touched by any trim (its five views are fixed by the paper's algorithm; `linking.py` builds its own prompts). C7's final prompt is ~930 tokens per candidate, so a trim there saves at most a few % of C7's cost.
+- C3 (fused metadata, full schema, one call, 8.1K tokens) is the config whose cost *is* the metadata block. Measured on the eval questions' schemas: T1 saves ~3,000 tok/q (−37%), T3 ~660 (−8%), T2 ~450 (−6%), T4 ~60 (−1%).
+- Recommendation: **C3 as the base** (≈1.8 h for 4 trims × ± hints). Option: also repeat on C7 (≈4 h more, a rough estimate; linking calls are cached, so only the candidate + check calls run), which tells whether the trims survive linking.
+
+**The four trims, each one flag away from the base (star design, not cumulative):**
+| | Change | Flag | Prompt it touches |
+|---|---|---|---|
+| T1 | long → short profile summaries | `profile_detail: short` (exists) | final call only |
+| T2 | mask the example literals inside profile summaries: every quoted value becomes `'…'`, counts and formats stay | `profile_values: false` (new) | final call only |
+| T3 | drop BIRD value descriptions, keep column descriptions | `bird_values: false` (exists) | final call only |
+| T4 | system prompt → one line: "Write one SQLite query that answers the question. Reply with only the SQL query in a ```sql code block." (drops the persona and the two rules: existing columns only; exactly the columns asked) | `system: minimal` (new) | final call (+ its correction calls) only |
+
+- **T2 is an information ablation more than a trim.** The summaries are free text, so "drop the sample values" can't delete a field. Re-generating the summaries without values would change all their wording (two variables). Masking in place is deterministic and changes only the values. 795 of 798 long summaries quote a literal; masking removes 7% of their characters. It answers the paper's core question: do the literal formats in the profiles carry the gain?
+- **T4 keeps the output-format line,** otherwise SQL extraction, not the model, is being tested. The new `system` flag is applied in `build_messages` only, so linking prompts stay byte-identical.
+
+**Pre-registered reading (fixed before any eval run):**
+- Δ = trim − base, paired bootstrap 95% CI, exact McNemar, Holm over the 8 tests (4 trims × ± hints).
+- **"Safe to trim"** = the CI lower bound is above **−5 pp** in both hint settings (non-inferiority margin ≈ the smallest effect n = 150 can detect). **"Hurts"** = Holm-adjusted p < 0.05 with Δ < 0. Anything else is **inconclusive**, and the write-up says so rather than "no loss".
+- Cost: prompt tok/q and s/q saved, against the base.
+
+**Implementation:**
+1. `PipelineConfig`: `profile_values: bool = True`, `system: Literal["full", "minimal"] = "full"`. Defaults leave every existing prompt byte-identical.
+2. `profiling.mask_literals(text)`: a regex that masks single-quoted literals, including ones with an inner apostrophe (`'St. Mary's Middle'`), but not possessives (`school's`). Applied in `schema_text` when `profile_values` is off. `prompts.SYSTEM_MINIMAL`.
+3. Tests: masking on real summary edge cases (possessives, inner apostrophes, numbers, URLs); defaults reproduce the base prompt byte for byte; `system` reaches the final call and corrections but not linking; each T config differs from the base by exactly one field.
+4. `promptfoo/configs/06_trimming.yaml`: base + T1–T4, ± hints (10 configs). Makefile `run-06`.
+5. Dev run (30 q) as a harness check only: the base must be fully cached (0 new calls), 0 errors, every prompt shorter than the base's. Nothing tuned.
+6. Eval run, then `export_csv.py` (06 joins the CSV; the base is checked identical to C3 from 01), a trimming table in `summary.py`, `docs/results.md` §06, D21, README findings + table row update. Every number generated from the CSV.
+
+- [x] T1–T4 implemented and tested (`tests/test_trimming.py`, 99 tests pass in total).
+- [x] Dev harness check (63 min, 2026-11-17). Both C3 configs fully cached (5 s each), so the defaults leave existing prompts byte-identical. 0 errors in 300 rows. Every trimmed prompt is shorter than C3's on every question (by at least 647 tokens for T1, 124 for T2, 9 for T3, 51 for T4). 236 new calls rather than 240: qid 1507 has an empty hint, so its ± hints prompts coincide. Dev accuracy not read for any decision. Dev runs ran ~13–19 s/q because 11 of 30 calls start a new DB (cold prefill at ~290 tok/s); eval has 11 cold of 150.
+- [x] Eval run (110 min, 0 errors, 1,196 new calls; C3 identical to 01 row for row) + write-up: `docs/results.md` §06, D21 outcome, summary table, README. **T2 hurts** (−10.7 pp with hints, Holm p = 0.012); T1/T3/T4 inconclusive (CIs wider than the −5 pp margin).
+
 #### C7 spec — SQL sanity checks + correction (paper §4, written 2026-11-17)
 Paper §4: each candidate is checked for constructions "likely to indicate an incorrect response". If one is found, "the LLM is asked for a correction with up to three retries"; then the vote. The four checks it names:
 - (a) **NULL ordering:** "ensure a NOT NULL predicate on f" if the output is ordered ascending on f.
@@ -200,7 +236,7 @@ Paper §4: three candidates, diversified by "changing the LLM randomization seed
 - **Likely causes:** (1) the target question is formatted as a ninth example with nothing separating it; (2) BIRD dev hints are noisy (one example's hint says `= 16`, its SQL `= 10`), so with hints on the examples teach "the SQL may ignore the hint". Without hints, query-log examples do fix percentage formulas and joins (moderate 31 → 56).
 - **Framing fix (03b, dev only, D17):** a hand-off line after the examples ("Now write the SQL for the question below. The examples only illustrate style…") recovers few-shot: with hints, querylog 30.0 → 56.7 (8 fixed / 0 broke, p = 0.008) and train 33.3 → 60.0 (9 / 1, p = 0.02); without hints, querylog 43.3 → 53.3 and train 36.7 → 43.3. Hiding the examples' own hints is mixed (+6.7 querylog, −10 train; 2–3 flips), so it's dropped. **Frozen:** `fewshot_framing: separated`, example hints shown. The eval config keeps inline query-log as a framing ablation.
 - **Determinism fix:** value-index ties depended on `PYTHONHASHSEED` (D17). Re-running 02/03 dev after the fix gave identical EX.
-- [ ] Trimming T1–T4.
+- [x] Trimming T1–T4 (C3 base, 2026-11-17). See the T1–T4 spec above.
 - [ ] Optional: repeat the headline configs on `qwen2.5-coder:7b` and/or on the 468-question test split.
 
 ### Phase 5 — Analysis and write-up
@@ -287,4 +323,5 @@ _(2026-11-17, after experiments 01–05 and Phase 5)_
 - **What I'd change:**
   - Record model digest and versions per run from day one. The runner only gained a provenance footer in Phase 5, and a stale "Q4_K_M" note survived until then.
   - Generate every number in prose from a query; I mistyped a ratio once.
-- **Open:** T1–T4 trimming, the qwen2.5-coder:7b rerun, and the 468-question test split.
+- **T1–T4 (added after the first review):** masking the example values in profiles hurts (−10.7 pp with hints, Holm p = 0.012), which is the paper's argument for profiling measured directly. Short profiles save 44% of C3's tokens at a ~0 point estimate, but the pre-registered −5 pp margin was tighter than n = 150's CIs, so it stays inconclusive.
+- **Open:** the qwen2.5-coder:7b rerun and the 468-question test split (which would also settle T1).

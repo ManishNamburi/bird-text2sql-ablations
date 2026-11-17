@@ -9,6 +9,8 @@
          column order (shuffle_seed=i) and sample with seed+i at vote_temperature (D19).
   C7     + SQL sanity checks (paper §4) on every candidate before the vote: checks=True. A
          flagged candidate gets up to check_retries correction calls (D20).
+  T1-T4  prompt trims of the final call, one flag each (D21): profile_detail="short",
+         profile_values=False (mask example values), bird_values=False, system="minimal".
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+from birdeval import prompts
 from birdeval.fewshot import examples_for
 from birdeval.linking import VARIANTS, link, oracle_fields
 from birdeval.llm import DEFAULT_MODEL, DEFAULT_NUM_CTX, LLMResult, chat, extract_sql
@@ -31,6 +34,7 @@ class PipelineConfig:
     metadata: Literal["none", "bird", "profile", "fused"] = "none"
     bird_values: bool = True  # include BIRD value descriptions (prompt-trimming knob)
     profile_detail: Literal["long", "short"] = "long"  # paper: long for SQL generation
+    profile_values: bool = True  # False masks quoted example values in profile summaries (T2)
     hints: bool = False  # BIRD "evidence" (the paper's oracle hint)
     linking: Literal["none", "llm", "oracle"] = "none"
     link_variants: tuple[str, ...] = tuple(VARIANTS)  # paper uses all five
@@ -42,6 +46,7 @@ class PipelineConfig:
     fewshot_example_hints: bool = True  # show examples' BIRD hints (only when hints=True)
     votes: int = 1  # candidates for the final call; 1 = no voting (paper uses 3)
     vote_temperature: float = 0.7  # for candidates 1.. (seed changes are inert at T=0)
+    system: Literal["full", "minimal"] = "full"  # final-call system prompt; linking keeps "full" (T4)
     checks: bool = False  # paper §4 SQL sanity checks + correction, per candidate (C7)
     check_retries: int = 3  # paper: "up to three retries"
     num_ctx: int = DEFAULT_NUM_CTX
@@ -52,6 +57,8 @@ class PipelineConfig:
             raise ValueError(f"unknown metadata variant: {self.metadata!r}")
         if self.profile_detail not in ("long", "short"):
             raise ValueError(f"unknown profile_detail: {self.profile_detail!r}")
+        if self.system not in ("full", "minimal"):
+            raise ValueError(f"unknown system: {self.system!r}")
         if self.linking not in ("none", "llm", "oracle"):
             raise ValueError(f"unknown linking: {self.linking!r}")
         if self.fewshot not in ("none", "train", "querylog"):
@@ -79,9 +86,12 @@ class PipelineResult:
 
 def build_messages(q: dict, cfg: PipelineConfig, columns=None, examples=None,
                    shuffle_seed: int | None = None) -> list[dict]:
-    schema = schema_text(q["db_id"], cfg.metadata, cfg.profile_detail, columns, cfg.bird_values, shuffle_seed)
+    schema = schema_text(q["db_id"], cfg.metadata, cfg.profile_detail, columns, cfg.bird_values, shuffle_seed,
+                         cfg.profile_values)
+    system = prompts.SYSTEM if cfg.system == "full" else prompts.SYSTEM_MINIMAL
     return messages(schema, q, cfg.hints, examples, cross_db=cfg.fewshot == "train",
-                    example_hints=cfg.fewshot_example_hints, separated=cfg.fewshot_framing == "separated")
+                    example_hints=cfg.fewshot_example_hints, separated=cfg.fewshot_framing == "separated",
+                    system=system)
 
 
 def _runs(db_id: str, sql: str) -> bool:

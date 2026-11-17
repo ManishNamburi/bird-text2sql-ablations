@@ -236,11 +236,11 @@ L 383.001239 86.696049
     <path d="M 57.006095 295.215046 
 L 64.7565 295.215046 
 L 64.7565 225.708714 
-L 117.956636 225.708714 
-L 117.956636 215.015432 
-L 125.496341 215.015432 
-L 125.496341 209.668791 
-L 341.650402 209.668791 
+L 105.578665 225.708714 
+L 105.578665 204.32215 
+L 131.761832 204.32215 
+L 131.761832 177.588945 
+L 341.650402 177.588945 
 L 341.650402 172.242304 
 L 342.715252 172.242304 
 L 342.715252 161.549022 
@@ -270,8 +270,12 @@ z
     <g clip-path="url(#p621ebe2699)">
      <use xlink:href="#m413f855208" x="57.006095" y="295.215046" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#m413f855208" x="64.7565" y="225.708714" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
+     <use xlink:href="#m413f855208" x="105.578665" y="204.32215" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
+     <use xlink:href="#m413f855208" x="116.435474" y="263.1352" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#m413f855208" x="117.956636" y="215.015432" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
+     <use xlink:href="#m413f855208" x="118.286622" y="220.362073" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#m413f855208" x="125.496341" y="209.668791" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
+     <use xlink:href="#m413f855208" x="131.761832" y="177.588945" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#m413f855208" x="341.650402" y="172.242304" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#m413f855208" x="342.715252" y="161.549022" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#m413f855208" x="347.057622" y="182.935586" style="fill: #2a78d6; stroke: #fcfcfb; stroke-width: 2"/>
@@ -311,10 +315,10 @@ z
     <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="70.7565" y="237.708714" transform="rotate(-0 70.7565 237.708714)">C1</text>
    </g>
    <g id="text_18">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="99.956636" y="229.015432" transform="rotate(-0 99.956636 229.015432)">C2</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="83.578665" y="198.32215" transform="rotate(-0 83.578665 198.32215)">T1</text>
    </g>
    <g id="text_19">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="129.496341" y="203.668791" transform="rotate(-0 129.496341 203.668791)">C3</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="137.761832" y="189.588945" transform="rotate(-0 137.761832 189.588945)">T4</text>
    </g>
    <g id="text_20">
     <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="317.650402" y="176.242304" transform="rotate(-0 317.650402 176.242304)">C4</text>
@@ -519,7 +523,9 @@ L 758.160134 74.220554
     <path d="M 432.001773 174.024518 
 L 444.258264 174.024518 
 L 444.258264 166.895663 
-L 505.717454 166.895663 
+L 505.356854 166.895663 
+L 505.356854 159.766809 
+L 505.717454 159.766809 
 L 505.717454 145.5091 
 L 713.317317 145.5091 
 L 713.317317 109.864827 
@@ -553,7 +559,11 @@ z
     <g clip-path="url(#p0344615ab0)">
      <use xlink:href="#me487b59d56" x="432.001773" y="174.024518" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#me487b59d56" x="444.258264" y="166.895663" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
+     <use xlink:href="#me487b59d56" x="485.876971" y="166.895663" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
+     <use xlink:href="#me487b59d56" x="495.098257" y="259.570773" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#me487b59d56" x="495.383067" y="166.895663" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
+     <use xlink:href="#me487b59d56" x="497.24069" y="181.153373" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
+     <use xlink:href="#me487b59d56" x="505.356854" y="159.766809" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#me487b59d56" x="505.717454" y="145.5091" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#me487b59d56" x="713.317317" y="109.864827" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
      <use xlink:href="#me487b59d56" x="714.520037" y="102.735972" style="fill: #eb6834; stroke: #fcfcfb; stroke-width: 2"/>
@@ -594,25 +604,28 @@ z
     <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="450.258264" y="178.895663" transform="rotate(-0 450.258264 178.895663)">C1</text>
    </g>
    <g id="text_39">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="509.717454" y="139.5091" transform="rotate(-0 509.717454 139.5091)">C3</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="511.356854" y="171.766809" transform="rotate(-0 511.356854 171.766809)">T4</text>
    </g>
    <g id="text_40">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="689.317317" y="113.864827" transform="rotate(-0 689.317317 113.864827)">C4</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="509.717454" y="139.5091" transform="rotate(-0 509.717454 139.5091)">C3</text>
    </g>
    <g id="text_41">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="652.520037" y="96.735972" transform="rotate(-0 652.520037 96.735972)">C4-checked</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="689.317317" y="113.864827" transform="rotate(-0 689.317317 113.864827)">C4</text>
    </g>
    <g id="text_42">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="740.366194" y="100.478263" transform="rotate(-0 740.366194 100.478263)">C6-vote</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="652.520037" y="96.735972" transform="rotate(-0 652.520037 96.735972)">C4-checked</text>
    </g>
    <g id="text_43">
-    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="676.549771" y="63.091699" transform="rotate(-0 676.549771 63.091699)">C6-shuffle</text>
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="740.366194" y="100.478263" transform="rotate(-0 740.366194 100.478263)">C6-vote</text>
    </g>
    <g id="text_44">
+    <text style="font-size: 9px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="676.549771" y="63.091699" transform="rotate(-0 676.549771 63.091699)">C6-shuffle</text>
+   </g>
+   <g id="text_45">
     <text style="font-size: 11px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="416.741239" y="42.200234" transform="rotate(-0 416.741239 42.200234)">With BIRD hints</text>
    </g>
   </g>
-  <g id="text_45">
+  <g id="text_46">
    <text style="font-size: 12px; font-family: 'DejaVu Sans'; text-anchor: start; fill: #0b0b0b" x="7.92" y="16.030125" transform="rotate(-0 7.92 16.030125)">Cost vs accuracy for every eval config. Line = Pareto frontier (labelled); dots below it cost more for less</text>
   </g>
  </g>

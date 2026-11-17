@@ -59,5 +59,6 @@ Profiling-generated metadata beats the expert descriptions, and fusing both is b
 | Fused metadata is best | Same direction (34.7) but not significant; costs 4× C1's tokens |
 | Linking helps a little; perfect linking a lot | Reproduces: +4.7 (n.s.); oracle +14.0 over linking (p < 0.001) |
 | Few-shot, voting, SQL checks | Not isolated in the paper. Here: 0, +0.7, +1.3 pp, none significant |
+| Profiling's value lies in literal formats (§2) | Reproduces: masking the example values in the summaries costs −10.7 pp with hints (Holm p = 0.012) |
 
 The details are in [results.md](results.md). The implementation choices, and where they deviate from the paper, are in [decisions.md](decisions.md) (D10–D20).

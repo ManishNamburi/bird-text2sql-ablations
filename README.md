@@ -28,7 +28,7 @@ Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs a
 | C7 | + SQL sanity checks | **41.3** (34–49) | **59.3** (51–67) | 20,523 | 50.9 | not isolated |
 | *Oracle* | *gold SQL's columns only (upper bound)* | *53.3* (45–61) | *61.3* (53–69) | *748* | *4.0* | *69.0 / 77.4* |
 
-*EX = BIRD execution accuracy (%), with Wilson 95% CIs. "With hints" adds BIRD's per-question evidence, which real users don't write, so the no-hints column is the realistic one. Deltas, paired CIs, a Holm-adjusted McNemar matrix and all 26 configs are in [results/summary.md](results/summary.md). The full write-up of each experiment is in [docs/results.md](docs/results.md).*
+*EX = BIRD execution accuracy (%), with Wilson 95% CIs. "With hints" adds BIRD's per-question evidence, which real users don't write, so the no-hints column is the realistic one. Deltas, paired CIs, a Holm-adjusted McNemar matrix, the trimming table and all 34 configs are in [results/summary.md](results/summary.md). The full write-up of each experiment is in [docs/results.md](docs/results.md).*
 
 ### What I found
 
@@ -41,12 +41,15 @@ Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs a
    - **Voting:** +0.7 pp, though it removes nearly all invalid SQL.
    - **SQL checks:** +1.3 pp, all from one check (string concatenation).
 6. **Hints dominate everything.** They add +17 to +27 pp at every step of the ladder, more than all the techniques combined. The oracle gains only +8, because much of what a hint supplies is which columns to use. The [error analysis](docs/error_analysis.md) shows why: about 8 of 20 sampled failures are questions that only mean what the gold SQL says once you've read the hint, or where the gold SQL itself is wrong.
+7. **What profiling contributes is its example values; its wording can be shortened.** I trimmed one section at a time from C3 (T1–T4, [results §06](docs/results.md#experiment-06--prompt-trimming-t1t4-research-question-4)).
+   - **Masking the quoted values in the profile summaries** costs −10.7 pp with hints (Holm p = 0.012). The model then guesses literal formats (`'north Bohemia'` for `'North Bohemia'`).
+   - **Short summaries instead of long ones** save 44% of the prompt at a ~0 point estimate (+0.7 / −2.0). But n = 150 can't show the loss is under 5 pp, so that trim stays unproven.
 
 ### Cost against accuracy
 
 ![Cost vs accuracy, Pareto frontier](docs/figures/pareto.png)
 
-Without hints, the cheap end of the frontier is C0 → C1 → C2/C3 (3–5 s per question). Linking is the step change in cost: 7.6× C3's time, for +4.7 pp (p = 0.21). **For a deployment on this model I'd pick C1:** BIRD descriptions on the full schema, 1,910 tokens, 3.1 s, 32.7%. Rather than more calls, I'd spend effort on linking recall.
+Without hints, the cheap end of the frontier is C0 → C1 → T1 → T4 (3–6 s per question). T1 and T4 are C3 with one section trimmed, and they sit above C3 by differences well inside the noise. Linking is the step change in cost: 7.6× C3's time, for +4.7 pp (p = 0.21). **For a deployment on this model I'd pick C1:** BIRD descriptions on the full schema, 1,910 tokens, 3.1 s, 32.7%. Rather than more calls, I'd spend effort on linking recall. If profiles are available, C3 with short summaries (T1) is the next candidate, once a larger split confirms it.
 
 ## How the evaluation is built
 
@@ -58,7 +61,7 @@ The full design is in [docs/eval-design.md](docs/eval-design.md), and every trad
 - **One change at a time.** Each config differs from its parent by one flag of a single `PipelineConfig`, which promptfoo passes to one custom Python provider. A custom Python assertion scores EX.
 - **Determinism.** Temperature 0, seed 42, thinking off. Voting candidates sample with fixed seeds. Every LLM call is cached on disk, keyed by its exact request, so reruns are free and identical, and timings are the original call's. A hash-seed nondeterminism bug was found by that cache and fixed (D17).
 - **No leakage.** Gold SQL never reaches a prompt except in the labelled oracle config. SQL-check detectors were calibrated on query-log gold SQL, never on eval.
-- **Provenance.** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX runner). Ollama 0.40.16, promptfoo 0.125.1, Node 22.23. All 7,530 LLM calls came from that one model build.
+- **Provenance.** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX runner). Ollama 0.40.16, promptfoo 0.125.1, Node 22.23. All 8,962 LLM calls came from that one model build.
 
 ## Reproduce
 
@@ -88,10 +91,10 @@ Build the few-shot pools (about 1.5 h of LLM time):
 make fewshot
 ```
 
-Run each experiment on the eval split (about 9 h in total on an M3 Pro), then rebuild the summary and figures:
+Run each experiment on the eval split (about 11 h in total on an M3 Pro), then rebuild the summary and figures:
 
 ```bash
-make run-01 run-02 run-03 run-04 run-05 SPLIT=eval
+make run-01 run-02 run-03 run-04 run-05 run-06 SPLIT=eval
 ```
 
 ```bash
@@ -110,8 +113,8 @@ promptfoo/         provider (one PipelineConfig per config), EX assertion, one Y
 scripts/           data prep and the two-pass runner (warm-up at -j 1, then a cache-only combined pass)
 analysis/          paired tests, per-question export, summary + figures, error analysis
 results/           per-run tables, per_question.csv, summary.md (raw promptfoo JSON stays local)
-docs/              results, eval design, decisions log (D1–D20), error analysis, paper summary, figures
-tests/             87 pytest tests: evaluator, schema renderer, linking, few-shot leakage, voting, checks
+docs/              results, eval design, decisions log (D1–D21), error analysis, paper summary, figures
+tests/             99 pytest tests: evaluator, schema renderer, linking, few-shot leakage, voting, checks, trims
 tasks/             the plan and the lessons log kept during the project
 ```
 
@@ -132,6 +135,7 @@ From [tasks/lessons.md](tasks/lessons.md), which I kept as the project ran:
 - **Cache misses on an unchanged pipeline mean nondeterminism.** A set iteration order that depended on `PYTHONHASHSEED` was changing prompts between processes.
 - **Execute both queries before blaming the evaluator, and before blaming the gold SQL.** A "logically identical" pair I suspected of an evaluator bug turned out to be an alias bug in the model's SQL. Two suspected gold bugs were confirmed only by running queries.
 - **Correct for multiple tests.** A lone p = 0.03 out of four comparisons isn't a finding.
+- **Size a non-inferiority margin against the CI you'll actually get.** I pre-registered "safe to trim = loss under 5 pp", but at n = 150 the paired CIs are ±5–7 pp wide, so a trim with no true effect fails about half the time or more. I reported the verdicts as registered: one trim hurts, and the other three are "inconclusive" rather than "safe".
 - **Quote numbers from the source, never from memory.** I misquoted the paper's Table 2 once and caught it only by re-reading the PDF.
 
 ## License and data
