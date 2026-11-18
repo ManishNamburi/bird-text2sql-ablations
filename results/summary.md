@@ -55,6 +55,17 @@ Each trim removes one prompt section from C3 (fused metadata, full schema, one c
 | **T3** | BIRD value descriptions dropped | -1.3 (-6.7 to +4.0) | 7 / 9, p = 1.000 | -3.3 (-8.0 to +1.3) | 4 / 9, p = 1.000 | 7,483 (-8%) | 5.1 | inconclusive |
 | **T4** | system prompt cut to one line | +4.0 (-1.3 to +9.3) | 11 / 5, p = 1.000 | -1.3 (-6.0 to +3.3) | 6 / 8, p = 1.000 | 8,061 (-1%) | 5.7 | inconclusive |
 
+## T1 on the 468-question test split
+
+Test = every non-dev question, so it contains the 150 eval questions above (their answers are the same cached calls). Same pre-registered rule, Holm over the 2 tests in the first row. The second row repeats the comparison on the questions outside eval only; it is a secondary check and gets no verdict. Source: `results/per_question_test.csv`.
+
+| Questions | n | C3 EX no hints / hints | T1 EX no hints / hints | Δ no hints (95% CI) | fixed / broke, p | Δ with hints (95% CI) | fixed / broke, p | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| all test | 468 | 41.5 / 51.7 | 37.0 / 50.4 | -4.5 (-7.7 to -1.1) | 22 / 43, p = 0.025 (Holm) | -1.3 (-4.1 to +1.5) | 20 / 26, p = 0.461 (Holm) | hurts |
+| not in eval | 318 | 44.7 / 50.9 | 37.7 / 50.0 | -6.9 (-10.7 to -3.5) | 8 / 30, p < 0.001 | -0.9 (-3.8 to +1.9) | 10 / 13, p = 0.678 | — (secondary) |
+
+Cost on all 468 test questions, no hints: C3 8,074 prompt tok/q, 4.3 s/q; T1 4,525 tok/q (-44%), 3.6 s/q. Valid SQL: C3 90.4%, T1 90.6%.
+
 ## Every eval config
 
 | Config | Experiment | EX no hints (95% CI) | EX with hints (95% CI) | Valid SQL % (no hints) | LLM calls/q | Prompt tok/q | s/q |

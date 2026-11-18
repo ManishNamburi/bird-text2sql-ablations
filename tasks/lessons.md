@@ -33,6 +33,7 @@ Rules learned while working on this project. Review at session start.
 - **Several tests at once need a correction before one of them is called significant.** In experiment 04, one of four C4 → C6 comparisons hit p = 0.031 (Holm-adjusted 0.125). Report the raw p, the number of tests, and the adjusted p together, and call a lone hit a lead, not a result. (2026-11-17)
 - **Compute every number in a write-up; never type one from a rough recollection of an earlier table.** In the error analysis I wrote 13/66 vs 49/84 where the data says 14/67 vs 48/83. Generate the sentence's numbers with a query, then paste. (2026-11-17)
 - **Size a non-inferiority margin against the CI you will get, before pre-registering it.** I set "safe = CI lower bound > −5 pp" for T1–T4, but at n = 150 the paired CIs are ±4.7 to ±6.7 pp, so a trim with a true Δ of 0 fails about half the time or more. Compute the expected half-width from a previous paired comparison first, then pick the margin or the n. (2026-11-17)
+- **An inconclusive result with a ~0 point estimate is not a lean toward "safe".** T1 was +0.7 pp on eval (CI ±6.7) and I called it the next candidate; on 468 questions it was −4.5 pp (Holm p = 0.025). Write "unknown, run more questions", and keep recommendations off inconclusive results. (2026-11-17)
 - **Claims of the form "X still contains some Y" need a count.** I wrote that short summaries quote values "now and then"; the count was 403 of 798. (2026-11-17)
 
 ## Corrections from the user

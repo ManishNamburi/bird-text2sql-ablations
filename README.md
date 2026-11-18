@@ -41,15 +41,15 @@ Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs a
    - **Voting:** +0.7 pp, though it removes nearly all invalid SQL.
    - **SQL checks:** +1.3 pp, all from one check (string concatenation).
 6. **Hints dominate everything.** They add +17 to +27 pp at every step of the ladder, more than all the techniques combined. The oracle gains only +8, because much of what a hint supplies is which columns to use. The [error analysis](docs/error_analysis.md) shows why: about 8 of 20 sampled failures are questions that only mean what the gold SQL says once you've read the hint, or where the gold SQL itself is wrong.
-7. **What profiling contributes is its example values; its wording can be shortened.** I trimmed one section at a time from C3 (T1–T4, [results §06](docs/results.md#experiment-06--prompt-trimming-t1t4-research-question-4)).
+7. **What profiling contributes is its example values, and trimming them costs accuracy.** I trimmed one section at a time from C3 (T1–T4, [results §06](docs/results.md#experiment-06--prompt-trimming-t1t4-research-question-4)).
    - **Masking the quoted values in the profile summaries** costs −10.7 pp with hints (Holm p = 0.012). The model then guesses literal formats (`'north Bohemia'` for `'North Bohemia'`).
-   - **Short summaries instead of long ones** save 44% of the prompt at a ~0 point estimate (+0.7 / −2.0). But n = 150 can't show the loss is under 5 pp, so that trim stays unproven.
+   - **Short summaries instead of long ones** save 44% of the prompt and looked free on eval (+0.7 / −2.0). On the 468-question test split they cost −4.5 pp without hints (Holm p = 0.025) and −1.3 with hints. About half the short summaries drop the values that long ones quote, so it's the same mechanism.
 
 ### Cost against accuracy
 
 ![Cost vs accuracy, Pareto frontier](docs/figures/pareto.png)
 
-Without hints, the cheap end of the frontier is C0 → C1 → T1 → T4 (3–6 s per question). T1 and T4 are C3 with one section trimmed, and they sit above C3 by differences well inside the noise. Linking is the step change in cost: 7.6× C3's time, for +4.7 pp (p = 0.21). **For a deployment on this model I'd pick C1:** BIRD descriptions on the full schema, 1,910 tokens, 3.1 s, 32.7%. Rather than more calls, I'd spend effort on linking recall. If profiles are available, C3 with short summaries (T1) is the next candidate, once a larger split confirms it.
+Without hints, the cheap end of the frontier is C0 → C1 → T1 → T4 (3–6 s per question). T1 and T4 are C3 with one section trimmed, and on eval they sit above C3 by differences well inside the noise. T1's place there doesn't survive the test split, where it is 4.5 pp below C3. Linking is the step change in cost: 7.6× C3's time, for +4.7 pp (p = 0.21). **For a deployment on this model I'd pick C1:** BIRD descriptions on the full schema, 1,910 tokens, 3.1 s, 32.7%. Rather than more calls, I'd spend effort on linking recall. Shortening the profile summaries (T1) looked like a cheap middle option on eval, but it costs 4.5 pp on the larger test split, so if profiles are used they stay long.
 
 ## How the evaluation is built
 
@@ -61,7 +61,7 @@ The full design is in [docs/eval-design.md](docs/eval-design.md), and every trad
 - **One change at a time.** Each config differs from its parent by one flag of a single `PipelineConfig`, which promptfoo passes to one custom Python provider. A custom Python assertion scores EX.
 - **Determinism.** Temperature 0, seed 42, thinking off. Voting candidates sample with fixed seeds. Every LLM call is cached on disk, keyed by its exact request, so reruns are free and identical, and timings are the original call's. A hash-seed nondeterminism bug was found by that cache and fixed (D17).
 - **No leakage.** Gold SQL never reaches a prompt except in the labelled oracle config. SQL-check detectors were calibrated on query-log gold SQL, never on eval.
-- **Provenance.** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX runner). Ollama 0.40.16, promptfoo 0.125.1, Node 22.23. All 8,962 LLM calls came from that one model build.
+- **Provenance.** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX runner). Ollama 0.40.16, promptfoo 0.125.1, Node 22.23. All 10,234 LLM calls came from that one model build.
 
 ## Reproduce
 
@@ -97,11 +97,17 @@ Run each experiment on the eval split (about 11 h in total on an M3 Pro), then r
 make run-01 run-02 run-03 run-04 run-05 run-06 SPLIT=eval
 ```
 
+The T1 check on the 468-question test split (about 80 min):
+
+```bash
+uv run python scripts/run_ablation.py promptfoo/configs/06_trimming.yaml --split test --providers '^(C3-fused|T1-short-profile)(\+hints)?$'
+```
+
 ```bash
 make summary
 ```
 
-`make summary` only needs the committed [results/per_question.csv](results/per_question.csv) (one row per config and question). Every table, figure and test in this README can be recomputed from it without models or data.
+`make summary` only needs the committed [results/per_question.csv](results/per_question.csv) (one row per config and question) and [results/per_question_test.csv](results/per_question_test.csv) (the test-split run). Every table, figure and test in this README can be recomputed from it without models or data.
 
 `make view` opens promptfoo's web viewer on the local runs, showing each test's actual prompt, SQL, score and latency.
 
@@ -121,7 +127,7 @@ tasks/             the plan and the lessons log kept during the project
 ## Limitations
 
 - **Sample size.** At n = 150, a single accuracy has a ±8 pp CI. Paired tests detect differences of roughly 5 pp and up. "Not significant" here means "smaller than that, if real".
-- **One model, one seed.** Run-to-run variance across seeds isn't measured. A `qwen2.5-coder:7b` rerun and the 468-question test split are planned but not run yet.
+- **One model, one seed.** Run-to-run variance across seeds isn't measured. A `qwen2.5-coder:7b` rerun is planned but not run yet. The 468-question test split has been run only for C3 vs T1, where it reversed the eval reading.
 - **The summarizer is the same 9B model.** An audit found 20% of its profile summaries wrong (D14). A stronger summarizer, as in the paper, could widen the profiling gain.
 - **Few-shot pools differ from the paper.** The "query log" pool is BIRD dev questions on the same databases. BIRD has no real query logs.
 - **BIRD gold SQL has errors.** 3 of 20 sampled failures are gold-side. All configs share the same gold, so comparisons stay fair, but absolute numbers are bounded by it.
@@ -136,6 +142,7 @@ From [tasks/lessons.md](tasks/lessons.md), which I kept as the project ran:
 - **Execute both queries before blaming the evaluator, and before blaming the gold SQL.** A "logically identical" pair I suspected of an evaluator bug turned out to be an alias bug in the model's SQL. Two suspected gold bugs were confirmed only by running queries.
 - **Correct for multiple tests.** A lone p = 0.03 out of four comparisons isn't a finding.
 - **Size a non-inferiority margin against the CI you'll actually get.** I pre-registered "safe to trim = loss under 5 pp", but at n = 150 the paired CIs are ±5–7 pp wide, so a trim with no true effect fails about half the time or more. I reported the verdicts as registered: one trim hurts, and the other three are "inconclusive" rather than "safe".
+- **A point estimate of ~0 is not "no loss".** Short summaries scored +0.7 pp on the 150 eval questions, and I called them the next candidate. On 468 questions they cost −4.5 pp (Holm p = 0.025). An inconclusive result is a reason to run more questions, not a lean toward "safe".
 - **Quote numbers from the source, never from memory.** I misquoted the paper's Table 2 once and caught it only by re-reading the PDF.
 
 ## License and data

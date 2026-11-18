@@ -8,6 +8,7 @@ can be recomputed without models, databases or promptfoo.
     cost, and the paper's GPT-4o number where the paper reports one
   - pairwise McNemar matrix over the ladder, Holm-adjusted for the number of tests
   - prompt trimming T1-T4 vs C3 with the pre-registered non-inferiority verdicts
+  - T1 vs C3 on the 468-question test split (results/per_question_test.csv)
   - every eval config (cost and accuracy)
   - figures: the ladder, and cost vs accuracy with the Pareto frontier
 
@@ -33,6 +34,7 @@ from birdeval.report import wilson  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 CSV = ROOT / "results" / "per_question.csv"
+TEST_CSV = ROOT / "results" / "per_question_test.csv"  # T1 vs C3 on the test split only
 OUT = ROOT / "results" / "summary.md"
 FIG = ROOT / "docs" / "figures"
 
@@ -150,16 +152,49 @@ def trimming_table(stats: pd.DataFrame, w: pd.DataFrame) -> str:
             cells += [f"{r['delta']:+.1f} ({r['lo']:+.1f} to {r['hi']:+.1f})",
                       f"{r['fixed']} / {r['broke']}, {fmt_p(adj[(config, h)], True)}"]
         s = stats.loc[config]
-        rs = [res[(config, h)] for h in (False, True)]
-        if any(adj[(config, h)] < 0.05 and res[(config, h)]["delta"] < 0 for h in (False, True)):
-            verdict = "hurts"
-        elif all(r["lo"] > NONINFERIORITY_PP for r in rs):
-            verdict = "safe to trim"
-        else:
-            verdict = "inconclusive"
-        cells += [f"{s.tok:,.0f} ({100 * (s.tok / base.tok - 1):+.0f}%)", f"{s.sec:.1f}", verdict]
+        cells += [f"{s.tok:,.0f} ({100 * (s.tok / base.tok - 1):+.0f}%)", f"{s.sec:.1f}",
+                  verdict([res[(config, h)] for h in (False, True)], [adj[(config, h)] for h in (False, True)])]
         lines.append("| " + " | ".join(cells) + " |")
     return head + "\n".join(lines) + "\n"
+
+
+def verdict(results: list[dict], holm_ps: list[float]) -> str:
+    """The pre-registered D21 rule over the no-hints and hints comparisons of one trim."""
+    if any(p < 0.05 and r["delta"] < 0 for r, p in zip(results, holm_ps)):
+        return "hurts"
+    if all(r["lo"] > NONINFERIORITY_PP for r in results):
+        return "safe to trim"
+    return "inconclusive"
+
+
+def t1_test_table(test: pd.DataFrame, eval_ids: set[int], trim: str = "T1-short-profile") -> str:
+    """T1 vs C3 on the 468-question test split (verdict, Holm over its 2 tests), then the same
+    comparison on the questions outside eval alone, as a secondary check without a verdict."""
+    head = ("| Questions | n | C3 EX no hints / hints | T1 EX no hints / hints | Δ no hints (95% CI) | "
+            "fixed / broke, p | Δ with hints (95% CI) | fixed / broke, p | Verdict |\n"
+            "|---|---|---|---|---|---|---|---|---|\n")
+    lines = []
+    for name, keep in [("all test", None), ("not in eval", lambda q: ~q.isin(eval_ids))]:
+        df = test if keep is None else test[keep(test["question_id"])]
+        w = wide(df)
+        res = [paired(w, lbl(TRIM_BASE, h), lbl(trim, h)) for h in (False, True)]
+        ps = [r["p"] for r in res]
+        if keep is None:
+            ps = list(multipletests(ps, method="holm")[1])
+        cells = [name, str(len(w)),
+                 " / ".join(f"{100 * w[lbl(TRIM_BASE, h)].mean():.1f}" for h in (False, True)),
+                 " / ".join(f"{100 * w[lbl(trim, h)].mean():.1f}" for h in (False, True))]
+        for r, p in zip(res, ps):
+            cells += [f"{r['delta']:+.1f} ({r['lo']:+.1f} to {r['hi']:+.1f})",
+                      f"{r['fixed']} / {r['broke']}, {fmt_p(p, True)}{' (Holm)' if keep is None else ''}"]
+        cells.append(verdict(res, ps) if keep is None else "— (secondary)")
+        lines.append("| " + " | ".join(cells) + " |")
+    s = per_config(test)
+    cost = (f"\nCost on all {test['question_id'].nunique()} test questions, no hints: C3 "
+            f"{s.loc[TRIM_BASE].tok:,.0f} prompt tok/q, {s.loc[TRIM_BASE].sec:.1f} s/q; T1 {s.loc[trim].tok:,.0f} tok/q "
+            f"({100 * (s.loc[trim].tok / s.loc[TRIM_BASE].tok - 1):+.0f}%), {s.loc[trim].sec:.1f} s/q. "
+            f"Valid SQL: C3 {s.loc[TRIM_BASE].valid:.1f}%, T1 {s.loc[trim].valid:.1f}%.\n")
+    return head + "\n".join(lines) + "\n" + cost
 
 
 def mcnemar_matrix(w: pd.DataFrame, hints: bool) -> str:
@@ -320,6 +355,12 @@ def main() -> None:
         f"**safe to trim** = the 95% CI lower bound of Δ is above {NONINFERIORITY_PP:.0f} pp with and without hints; "
         "**hurts** = Holm p < 0.05 with Δ < 0; otherwise **inconclusive**. Token and time columns are the no-hints "
         "config.\n\n" + trimming_table(stats, w) +
+        "\n## T1 on the 468-question test split\n\n"
+        "Test = every non-dev question, so it contains the 150 eval questions above (their answers are the same "
+        "cached calls). Same pre-registered rule, Holm over the 2 tests in the first row. The second row repeats "
+        "the comparison on the questions outside eval only; it is a secondary check and gets no verdict. "
+        f"Source: `{TEST_CSV.relative_to(ROOT)}`.\n\n"
+        + t1_test_table(pd.read_csv(TEST_CSV), set(df["question_id"])) +
         "\n## Every eval config\n\n" + all_configs_table(stats) +
         "\n![ladder](../docs/figures/ladder.png)\n\n![pareto](../docs/figures/pareto.png)\n")
     print(f"-> {OUT.relative_to(ROOT)}, {FIG.relative_to(ROOT)}/ladder.*, pareto.*")

@@ -187,12 +187,34 @@ Each trim removes one prompt section from **C3** (fused metadata, full schema, o
 
    No SQL contained the placeholder itself. This is the paper's core argument for profiling (§2: literal formats are what SME documentation lacks), here measured directly.
 2. **Masked profiles score *below* no profiles.** T2 is under C1, which has BIRD descriptions and no profiles at all: −4.7 pp without hints, −8.7 pp with hints (raw p = 0.041). This comparison wasn't pre-registered, so it's a lead. A plausible reading: the masked summaries keep saying "this column holds specific literals" without saying which, and the model guesses, at 3.8× C1's tokens.
-3. **Short profiles cost nothing measurable and save 44% of the prompt.** T1 drops 3,566 tokens and 0.9 s per question, and its point estimates are +0.7 / −2.0. Valid SQL rises from 88.7% to 92.7%, consistent with experiment 01's finding that long prompts lead the model to the wrong table. Half the short summaries (403 of 798) still quote at least one value (e.g. "either 'D' or 'S'"), so T1 keeps much of what finding 1 says matters. But the CI lower bounds (−6.0 / −8.0) don't clear the −5 pp margin, so by the pre-registered rule T1 is **inconclusive**, not safe.
+3. **Short profiles cost nothing measurable on eval and save 44% of the prompt** *(overturned on the 468-question test split, see below)*. T1 drops 3,566 tokens and 0.9 s per question, and its point estimates are +0.7 / −2.0. Valid SQL rises from 88.7% to 92.7%, consistent with experiment 01's finding that long prompts lead the model to the wrong table. Half the short summaries (403 of 798) still quote at least one value (e.g. "either 'D' or 'S'"), so T1 keeps much of what finding 1 says matters. But the CI lower bounds (−6.0 / −8.0) don't clear the −5 pp margin, so by the pre-registered rule T1 is **inconclusive**, not safe.
 4. **BIRD value descriptions and the system rules: no measurable effect either way.** T3 (−8% tokens) is −1.3 / −3.3, and T4 is +4.0 / −1.3. T4 saves only 51 tokens, so "inconclusive" here mostly says the two rules (existing columns only; exactly the columns asked) don't move this model.
 5. **The margin was too tight for n = 150, and that's the main methodological lesson.** The paired CIs are ±4.7 to ±6.7 pp wide, so a trim with a true Δ of exactly 0 fails a −5 pp non-inferiority test about half the time or more. Only the 468-question test split (CIs about ±3.5 pp) could certify T1 or T3 as safe. I chose the margin by comparing it to the detectable effect size, when it needed to exceed the expected CI half-width (see `tasks/lessons.md`).
 
+### T1 on the 468-question test split
+
+T1 was the one trim worth confirming, so C3 and T1 (± hints) were re-run on the test split: all 468 non-dev questions, which include the 150 eval questions. Spec, verdict rule and expected power were written in `tasks/todo.md` before the run. The rule is D21's, unchanged, with Holm over these 2 tests. With the paired SDs from eval, the expected CI half-width was ~3.6–3.9 pp, and a T1 with no true effect would have been called safe about 60% of the time. Run: 83 min, 1,272 new LLM calls, 0 errors. On the 150 eval questions every row (EX, SQL, tokens) is identical to the eval run.
+
+| Questions | n | C3 no hints / hints | T1 no hints / hints | Δ no hints (95% CI), fixed / broke | Δ with hints (95% CI), fixed / broke | Verdict |
+|---|---|---|---|---|---|---|
+| all test | 468 | 41.5 / 51.7 | 37.0 / 50.4 | **−4.5** (−7.7 to −1.1), 22 / 43, Holm p = 0.025 | −1.3 (−4.1 to +1.5), 20 / 26, Holm p = 0.46 | **hurts** |
+| not in eval (secondary) | 318 | 44.7 / 50.9 | 37.7 / 50.0 | −6.9 (−10.7 to −3.5), 8 / 30 | −0.9 (−3.8 to +1.9), 10 / 13 | — |
+
+Cost on test: T1 saves 3,549 prompt tokens (−44%) and 0.65 s per question. Valid SQL is the same (90.4% vs 90.6%).
+
+1. **Short profiles cost accuracy without hints.** −4.5 pp, significant after correction, so by the pre-registered rule T1 **hurts**. The loss is in moderate (38.8 → 30.6) and challenging (28.9 → 23.7) questions; simple ones are flat (54.7 → 56.8).
+2. **With hints, T1 is within the margin.** The CI lower bound (−4.1) clears −5 pp, but "safe" needed both settings, so this is not a verdict. Hints cover most of the gap: T1 with hints answers 30 of the 43 questions T1 broke without them.
+3. **The eval estimate of +0.7 was a lucky draw.** On the 318 questions outside eval the no-hints Δ is −6.9. The eval-vs-rest difference is z = −1.9 (p = 0.056), large but within what sampling explains at n = 150. A ~0 point estimate inside a ±6.7 pp CI was never evidence of "no loss", and the README's "next candidate" wording leaned on it more than it deserved.
+4. **Why: the short summaries drop values, as in T2.** In a seeded sample of 12 of the 43 broken questions (no hints), 4 fail on a value the long summary quotes and the short one doesn't:
+   - qid 136: long summary lists `'POPLATEK MESICNE' (monthly)`, short only says "values representing monthly…"; T1 wrote `= 'monthly'`;
+   - qid 468: long lists `'Chinese Simplified'`, short says "ten distinct localized names"; T1 guessed `'zh-Hans'`;
+   - qid 1344: long lists `income.source = 'Fundraising'`, short doesn't; T1 searched `budget.category` instead;
+   - qid 93: long shows `'west Bohemia'` (casing pattern), short shows only `'Prague'` and `'south Moravia'`; T1 wrote `'north bohemia'`.
+
+   The other 8 are formula, join and extra-column changes with no clear link to the trimmed text (e.g. a percentage of amounts becoming a percentage of rows), the kind of flip any prompt change causes. This is the same mechanism as T2, at a smaller dose: 403 of 798 short summaries still quote a value, against 795 of 798 long ones.
+
 ### Answer to "can we trim the prompt?" (final)
-- **Don't trim the values out of profiles.** They are the part of profiling that carries the gain.
-- **Short profiles are the best trim candidate:** −44% tokens, a point estimate of ~0, and better SQL validity. They're not proven safe at n = 150; the test-split run would settle it.
+- **Don't trim the values out of profiles.** They are the part of profiling that carries the gain. Masking them (T2) and shortening the summaries so that about half lose them (T1) both cost accuracy without hints.
+- **Short profiles are not a free 44%.** They cost −4.5 pp without hints on the 468-question test split. With hints they stay within 5 pp, so a hints-only deployment could consider them, but that reading wasn't pre-registered as a verdict.
 - **BIRD value descriptions and the system rules** can probably go, but the evidence is "no detectable effect", not "no effect".
 - **The cost picture doesn't change:** the biggest cost lever is still the C1-vs-C3 choice (24% of the tokens) and, above that, linking (experiment 02), not trimming sections inside one prompt.

@@ -71,7 +71,7 @@ Cross factor:
 - [x] **Hints (evidence) on/off** for every config (C0–C7) (the paper's main contrast).
 
 Prompt trimming (on C3; the plan said the best non-oracle config, changed at check-in, D21):
-- [x] **T1** long profile → short profile (D21, `06_trimming.yaml`): inconclusive, −44% tokens.
+- [x] **T1** long profile → short profile (D21, `06_trimming.yaml`): inconclusive on eval, **hurts** on the 468-question test split (−4.5 pp without hints), −44% tokens.
 - [x] **T2** mask the example values in profile summaries: **hurts**.
 - [x] **T3** drop the BIRD value descriptions and keep only column descriptions: inconclusive.
 - [x] **T4** strip the system instructions down to one line: inconclusive.
@@ -184,6 +184,22 @@ Research question 4: which prompt sections can go without a real accuracy loss, 
 - [x] Dev harness check (63 min, 2026-11-17). Both C3 configs fully cached (5 s each), so the defaults leave existing prompts byte-identical. 0 errors in 300 rows. Every trimmed prompt is shorter than C3's on every question (by at least 647 tokens for T1, 124 for T2, 9 for T3, 51 for T4). 236 new calls rather than 240: qid 1507 has an empty hint, so its ± hints prompts coincide. Dev accuracy not read for any decision. Dev runs ran ~13–19 s/q because 11 of 30 calls start a new DB (cold prefill at ~290 tok/s); eval has 11 cold of 150.
 - [x] Eval run (110 min, 0 errors, 1,196 new calls; C3 identical to 01 row for row) + write-up: `docs/results.md` §06, D21 outcome, summary table, README. **T2 hurts** (−10.7 pp with hints, Holm p = 0.012); T1/T3/T4 inconclusive (CIs wider than the −5 pp margin).
 
+#### T1 on the test split — spec (written 2026-11-17, before any test-split run)
+Question: is T1 (short profile summaries, −44% prompt tokens) non-inferior to C3 on all 468 non-dev questions?
+- **Configs:** C3-fused and T1-short-profile, ± hints (4 configs), from `06_trimming.yaml` with `--providers '^(C3-fused|T1-short-profile)(\+hints)?$'`. No new code in the pipeline.
+- **Cost:** test ⊃ eval, so the 150 eval questions are disk-cache hits. New calls: 318 questions × 4 configs ≈ 1,272 (fewer where a hint is empty). Estimate 2–2.5 h at the eval run's 4.5–5.4 s/q plus 44 cold-prefill starts. Nothing else runs on the machine meanwhile.
+- **Verdict rule: the D21 rule, unchanged.** Safe = paired-bootstrap 95% CI lower bound of Δ (T1 − C3) above −5 pp with and without hints; hurts = Holm-adjusted McNemar p < 0.05 (over these 2 tests) with Δ < 0; otherwise inconclusive. The margin is not re-chosen: picking it now, after seeing T1's eval numbers, would be post hoc.
+- **Expected power (per the margin lesson, computed from the eval run's paired SDs):** CI half-width ≈ 3.9 pp without hints, 3.6 pp with hints. If the true Δ is 0, each setting passes with P ≈ 0.72 / 0.79, both together ≈ 0.6; if the true Δ is −1 pp, ≈ 0.3. So "inconclusive" remains a likely outcome, and the write-up will say so up front rather than after the fact.
+- **Overlap with eval:** the 150 eval questions are inside test and their T1 results were already read. Nothing was tuned on them for T1, so they stay held-out, but as a secondary check the analysis also reports the 318 fresh questions alone (not used for the verdict).
+- **Analysis:**
+  - `analysis/export_csv.py` also writes `results/per_question_test.csv` (4 configs × 468 rows) and fails unless the 150 eval rows of each config match `per_question.csv` column for column (ex, valid_sql, tokens, calls).
+  - `analysis/summary.py` gains a "T1 on the test split" section: EX with Wilson CIs, Δ with bootstrap CI, McNemar p (Holm over 2), verdict, tok/q and s/q, plus the fresh-318 row.
+  - Write-up: `docs/results.md` §06 addendum, D21 outcome, README finding 7 and the limitations line, `tasks/lessons.md` if anything surprises.
+- **Verify:** 0 provider errors, combined pass fully cached, eval-subset rows identical, `make summary` byte-identical on rerun, tests pass, every prose number generated from the CSV.
+- [x] Spec approved (2026-11-17, as written)
+- [x] Test-split run (83 min, 1,272 new calls, 0 errors; combined pass fully cached). All four configs identical to the eval run on the 150 eval questions.
+- [x] Export, summary section, write-up. Deviation: the summary table shows EX without Wilson CIs to stay narrow; they are in `results/06_trimming__test.md`. **T1 hurts:** −4.5 pp without hints (−7.7 to −1.1, Holm p = 0.025), −1.3 with hints (−4.1 to +1.5). On the 318 questions outside eval, −6.9 / −0.9.
+
 #### C7 spec — SQL sanity checks + correction (paper §4, written 2026-11-17)
 Paper §4: each candidate is checked for constructions "likely to indicate an incorrect response". If one is found, "the LLM is asked for a correction with up to three retries"; then the vote. The four checks it names:
 - (a) **NULL ordering:** "ensure a NOT NULL predicate on f" if the output is ordered ascending on f.
@@ -237,7 +253,7 @@ Paper §4: three candidates, diversified by "changing the LLM randomization seed
 - **Framing fix (03b, dev only, D17):** a hand-off line after the examples ("Now write the SQL for the question below. The examples only illustrate style…") recovers few-shot: with hints, querylog 30.0 → 56.7 (8 fixed / 0 broke, p = 0.008) and train 33.3 → 60.0 (9 / 1, p = 0.02); without hints, querylog 43.3 → 53.3 and train 36.7 → 43.3. Hiding the examples' own hints is mixed (+6.7 querylog, −10 train; 2–3 flips), so it's dropped. **Frozen:** `fewshot_framing: separated`, example hints shown. The eval config keeps inline query-log as a framing ablation.
 - **Determinism fix:** value-index ties depended on `PYTHONHASHSEED` (D17). Re-running 02/03 dev after the fix gave identical EX.
 - [x] Trimming T1–T4 (C3 base, 2026-11-17). See the T1–T4 spec above.
-- [ ] Optional: repeat the headline configs on `qwen2.5-coder:7b` and/or on the 468-question test split.
+- [ ] Optional: repeat the headline configs on `qwen2.5-coder:7b` and/or on the 468-question test split (done for C3 vs T1 only).
 
 ### Phase 5 — Analysis and write-up
 - [x] `analysis/export_csv.py` + `analysis/summary.py` → `results/per_question.csv`, `results/summary.md` (CI tables, Holm-adjusted McNemar matrix), ladder chart, and a Pareto chart.
@@ -324,4 +340,5 @@ _(2026-11-17, after experiments 01–05 and Phase 5)_
   - Record model digest and versions per run from day one. The runner only gained a provenance footer in Phase 5, and a stale "Q4_K_M" note survived until then.
   - Generate every number in prose from a query; I mistyped a ratio once.
 - **T1–T4 (added after the first review):** masking the example values in profiles hurts (−10.7 pp with hints, Holm p = 0.012), which is the paper's argument for profiling measured directly. Short profiles save 44% of C3's tokens at a ~0 point estimate, but the pre-registered −5 pp margin was tighter than n = 150's CIs, so it stays inconclusive.
-- **Open:** the qwen2.5-coder:7b rerun and the 468-question test split (which would also settle T1).
+- **T1 on the test split (2026-11-17):** T1 hurts, −4.5 pp without hints (Holm p = 0.025). Eval's +0.7 was a lucky draw (−6.9 on the 318 questions outside eval). Sampled failures show the T2 mechanism: short summaries drop literals the long ones quote. The README no longer recommends short summaries.
+- **Open:** the qwen2.5-coder:7b rerun; the other configs on the test split.
