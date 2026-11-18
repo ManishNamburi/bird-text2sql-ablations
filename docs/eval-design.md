@@ -76,7 +76,8 @@ Timings come from one machine (MacBook Pro M3 Pro, 18 GB, Ollama MLX runner), wh
 
 - **Model:** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX).
 - **Versions:** Ollama 0.40.16, promptfoo 0.125.1, Node 22.23, Python 3.12.
-- **One build behind every result:** all 10,234 cached LLM calls were made after that model was pulled, under that tag.
+- **One build behind every result:** all 10,234 cached qwen3.5 calls were made after that model was pulled, under that tag.
+- **The model rerun (D22):** `qwen2.5-coder:7b`, digest `dae161e27b0e` (7.6B, Q4_K_M, llama.cpp runner, `num_ctx` enforced), 4,209 cached calls.
 - **Going forward,** the runner writes these facts into every `results/*.md` (D1 correction).
 
 ## promptfoo features used (D18)

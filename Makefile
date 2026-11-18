@@ -8,7 +8,7 @@ export PROMPTFOO_DISABLE_TELEMETRY := 1
 
 SPLIT ?= dev
 
-.PHONY: setup data test splits metadata fewshot run-01 run-02 run-03 run-04 run-05 run-06 csv summary view
+.PHONY: setup data test splits metadata fewshot run-01 run-02 run-03 run-04 run-05 run-06 run-07 csv summary view
 
 setup:            ## install Python + Node deps and pull models
 	uv sync
@@ -59,6 +59,9 @@ run-05:           ## SQL sanity checks + correction (C7); make run-05 SPLIT=eval
 
 run-06:           ## prompt trimming T1-T4 on C3; make run-06 SPLIT=eval
 	uv run python scripts/run_ablation.py promptfoo/configs/06_trimming.yaml --split $(SPLIT)
+
+run-07:           ## headline configs on qwen2.5-coder:7b; make run-07 SPLIT=eval
+	uv run python scripts/run_ablation.py promptfoo/configs/07_coder.yaml --split $(SPLIT)
 
 csv:              ## merge the local eval runs into results/per_question.csv (needs results/raw/)
 	uv run python analysis/export_csv.py

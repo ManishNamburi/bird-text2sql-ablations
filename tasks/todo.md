@@ -200,6 +200,30 @@ Question: is T1 (short profile summaries, −44% prompt tokens) non-inferior to 
 - [x] Test-split run (83 min, 1,272 new calls, 0 errors; combined pass fully cached). All four configs identical to the eval run on the 150 eval questions.
 - [x] Export, summary section, write-up. Deviation: the summary table shows EX without Wilson CIs to stay narrow; they are in `results/06_trimming__test.md`. **T1 hurts:** −4.5 pp without hints (−7.7 to −1.1, Holm p = 0.025), −1.3 with hints (−4.1 to +1.5). On the 318 questions outside eval, −6.9 / −0.9.
 
+#### qwen2.5-coder:7b rerun — spec (written 2026-11-17, before any coder run)
+Question (D1): do the paper's gains depend on the model? Same pipeline, same prompts, same frozen eval split; only `model` changes.
+- **Smoke test (done, 2 uncached calls on a dev question):** Ollama serves `qwen2.5-coder:7b` (digest `dae161e27b0e`) on the **llama.cpp** runner, which loads the full `num_ctx` of 24,576 (6.0 GB, 100% GPU). `think: false` is accepted, and the reply is a fenced ```sql block, so extraction needs no change. Prefill ~250 tok/s and decode 25–29 tok/s, about qwen3.5's speed. `chat()` already refuses any prompt that reaches `num_ctx` (D13), so llama.cpp can't silently truncate a schema.
+- **Configs:** the seven headline configs, ± hints (14): C0-ddl, C1-bird, C3-fused, C4-linked, C6-vote, C7, C4-oracle. Same flags as in 01/02/04/05 plus `model: qwen2.5-coder:7b`. Labels get an `@coder` suffix (`C4-linked@coder+hints`). New config `promptfoo/configs/07_coder.yaml`, Makefile `run-07`.
+- **Held fixed:**
+  - the profile summaries and their embeddings stay qwen3.5's (D11: "the coder check reuses them"), so the comparison isolates SQL generation and linking;
+  - prompts, seeds, temperatures (0, and 0.7 for vote candidates 2–3), the vote and check rules are all frozen; nothing is tuned for the coder;
+  - the coder also does the linking calls, because they are part of the pipeline under test.
+- **Dev run (30 questions) as a harness check only:** extraction, linking parse and fallbacks, vote/check paths, `prompt_tokens < num_ctx`, 0 provider errors. Dev accuracy isn't used for anything. If dev shows a harness failure (for example a reply format the extractor misses), I fix the harness, not the prompts, and report it.
+- **Pre-registered analysis (eval, n = 150):**
+  1. **Model gap per config (primary):** EX(coder) − EX(qwen3.5) on the same questions. Paired bootstrap CI, exact McNemar, Holm over the 14 configs.
+  2. **Ladder on the coder:** the same ladder table and Holm-adjusted pairwise matrix as qwen3.5's, with "replicates" judged by the sign and significance of each step, as for qwen3.5.
+  3. **Does a step's gain depend on the model (exploratory):** Δstep(coder) − Δstep(qwen3.5), paired bootstrap CI. Expected power is low and stated up front: qwen3.5's step CIs alone are ±6–8 pp for metadata and linking, so this difference has a CI of roughly ±9–11 pp. Only large interactions are detectable, and a CI that includes 0 means "unknown", not "same".
+- **Analysis code:**
+  - `export_csv.py` adds `07_coder`; the coder rows join `per_question.csv` (+2,100 rows) under their own labels.
+  - `summary.py` adds a coder section. The existing tables and figures filter out `@coder` labels, and the existing sections are checked byte-identical to before.
+  - Write-up: `docs/results.md` §07, a decision entry D22, README (finding, limitation line, Reproduce), `docs/paper-summary.md` if it bears on a paper claim.
+- **Cost estimate:** about 66 s of new compute per question per hint setting at qwen3.5's per-config times (the C6/C7 linking and candidate 1 are shared cache hits with C4). That's ~1.5 h for dev and ~5–6 h for eval. Nothing else runs on the machine meanwhile.
+- **Verify:** 0 provider errors, combined pass fully cached, the coder digest in the provenance footer, existing summary sections unchanged, tests pass, every prose number generated from the CSV.
+- [x] Spec approved (2026-11-17, as written)
+- [x] Dev harness check (82 min, 2026-11-17): 0 errors in 420 rows, combined pass fully cached, no prompt reached `num_ctx` (`chat()` would have raised). Extraction checked on raw cached replies: invalid SQL is the model's (e.g. `preferred_foot` queried on `Player`, where it doesn't exist), not the extractor's. Linking recall 0.88 / 0.91 (qwen3.5 dev: 0.93). The summary's coder section renders on dev data. Dev accuracy not used for anything.
+- [x] Eval run (2026-11-18): 3,513 new calls, 291 min of model time (8.2 h wall clock: the Mac idle-slept overnight, timings unaffected), 0 errors in 2,100 rows, combined pass fully cached, coder digest in the provenance footer, largest prompt 19,505 tokens.
+- [x] Export, summary section, write-up: `per_question.csv` +2,100 rows with the 5,100 existing rows byte-identical; the existing summary sections and figures are unchanged; `summary.md` is byte-identical on rerun; 99 tests pass. Written up in `docs/results.md` §07, D22, README finding 8, limitations, Reproduce and provenance, and `eval-design.md`.
+
 #### C7 spec — SQL sanity checks + correction (paper §4, written 2026-11-17)
 Paper §4: each candidate is checked for constructions "likely to indicate an incorrect response". If one is found, "the LLM is asked for a correction with up to three retries"; then the vote. The four checks it names:
 - (a) **NULL ordering:** "ensure a NOT NULL predicate on f" if the output is ordered ascending on f.
@@ -253,7 +277,8 @@ Paper §4: three candidates, diversified by "changing the LLM randomization seed
 - **Framing fix (03b, dev only, D17):** a hand-off line after the examples ("Now write the SQL for the question below. The examples only illustrate style…") recovers few-shot: with hints, querylog 30.0 → 56.7 (8 fixed / 0 broke, p = 0.008) and train 33.3 → 60.0 (9 / 1, p = 0.02); without hints, querylog 43.3 → 53.3 and train 36.7 → 43.3. Hiding the examples' own hints is mixed (+6.7 querylog, −10 train; 2–3 flips), so it's dropped. **Frozen:** `fewshot_framing: separated`, example hints shown. The eval config keeps inline query-log as a framing ablation.
 - **Determinism fix:** value-index ties depended on `PYTHONHASHSEED` (D17). Re-running 02/03 dev after the fix gave identical EX.
 - [x] Trimming T1–T4 (C3 base, 2026-11-17). See the T1–T4 spec above.
-- [ ] Optional: repeat the headline configs on `qwen2.5-coder:7b` and/or on the 468-question test split (done for C3 vs T1 only).
+- [x] Optional: repeat the headline configs on `qwen2.5-coder:7b` (done on eval, 2026-11-18, D22).
+- [ ] Optional: the headline configs on the 468-question test split (done for C3 vs T1 only).
 
 ### Phase 5 — Analysis and write-up
 - [x] `analysis/export_csv.py` + `analysis/summary.py` → `results/per_question.csv`, `results/summary.md` (CI tables, Holm-adjusted McNemar matrix), ladder chart, and a Pareto chart.
@@ -341,4 +366,9 @@ _(2026-11-17, after experiments 01–05 and Phase 5)_
   - Generate every number in prose from a query; I mistyped a ratio once.
 - **T1–T4 (added after the first review):** masking the example values in profiles hurts (−10.7 pp with hints, Holm p = 0.012), which is the paper's argument for profiling measured directly. Short profiles save 44% of C3's tokens at a ~0 point estimate, but the pre-registered −5 pp margin was tighter than n = 150's CIs, so it stays inconclusive.
 - **T1 on the test split (2026-11-17):** T1 hurts, −4.5 pp without hints (Holm p = 0.025). Eval's +0.7 was a lucky draw (−6.9 on the 318 questions outside eval). Sampled failures show the T2 mechanism: short summaries drop literals the long ones quote. The README no longer recommends short summaries.
-- **Open:** the qwen2.5-coder:7b rerun; the other configs on the test split.
+- **qwen2.5-coder:7b rerun (2026-11-18):**
+  - No config differs significantly from qwen3.5 (14 tests, all Holm p ≥ 0.57).
+  - The ladder's shape replicates: C0 → C1 +8.7 pp without hints; oracle vs C4 +12.7 / +9.3 (p < 0.001); voting and checks ~0. Linking recall is the lever on both models.
+  - Post hoc: hints help the coder 7.9 pp less (−14.1 to −2.0); it's a lead, not pre-registered.
+  - The checks fire on the coder but flip no result: it never writes string concatenation.
+- **Open:** the other configs on the test split; a pre-registered hint × model test on the test split.

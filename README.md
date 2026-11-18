@@ -12,6 +12,8 @@ This project rebuilds that pipeline and runs it on **`qwen3.5:9b` locally (MacBo
 - what it costs in tokens and seconds;
 - whether the gain is real or noise.
 
+The headline configs are then repeated on **`qwen2.5-coder:7b`** to see whether the gains depend on the model.
+
 Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs and paired tests.
 
 ![Each step of the pipeline](docs/figures/ladder.png)
@@ -28,7 +30,7 @@ Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs a
 | C7 | + SQL sanity checks | **41.3** (34–49) | **59.3** (51–67) | 20,523 | 50.9 | not isolated |
 | *Oracle* | *gold SQL's columns only (upper bound)* | *53.3* (45–61) | *61.3* (53–69) | *748* | *4.0* | *69.0 / 77.4* |
 
-*EX = BIRD execution accuracy (%), with Wilson 95% CIs. "With hints" adds BIRD's per-question evidence, which real users don't write, so the no-hints column is the realistic one. Deltas, paired CIs, a Holm-adjusted McNemar matrix, the trimming table and all 34 configs are in [results/summary.md](results/summary.md). The full write-up of each experiment is in [docs/results.md](docs/results.md).*
+*EX = BIRD execution accuracy (%), with Wilson 95% CIs. "With hints" adds BIRD's per-question evidence, which real users don't write, so the no-hints column is the realistic one. Deltas, paired CIs, a Holm-adjusted McNemar matrix, the trimming table, all 34 qwen3.5 configs and the qwen2.5-coder rerun are in [results/summary.md](results/summary.md). The full write-up of each experiment is in [docs/results.md](docs/results.md).*
 
 ### What I found
 
@@ -44,6 +46,9 @@ Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs a
 7. **What profiling contributes is its example values, and trimming them costs accuracy.** I trimmed one section at a time from C3 (T1–T4, [results §06](docs/results.md#experiment-06--prompt-trimming-t1t4-research-question-4)).
    - **Masking the quoted values in the profile summaries** costs −10.7 pp with hints (Holm p = 0.012). The model then guesses literal formats (`'north Bohemia'` for `'North Bohemia'`).
    - **Short summaries instead of long ones** save 44% of the prompt and looked free on eval (+0.7 / −2.0). On the 468-question test split they cost −4.5 pp without hints (Holm p = 0.025) and −1.3 with hints. About half the short summaries drop the values that long ones quote, so it's the same mechanism.
+8. **A 7B code model gives the same picture** ([results §07](docs/results.md#experiment-07--the-same-pipeline-on-qwen25-coder7b-d1-d22)). On `qwen2.5-coder:7b`, no config differs significantly from qwen3.5:9b (14 tests, all Holm p ≥ 0.57).
+   - **The ladder's shape replicates:** descriptions add +8.7 pp without hints (raw p = 0.015), perfect linking adds +12.7 pp over C4 (p < 0.001), and voting and checks add ~0. Linking recall is again the lever.
+   - **Hints help the coder less.** It is ahead by up to +4.7 pp without hints and behind by up to −8.7 pp with them. Pooled, hints gain it 7.9 pp less (95% CI −14.1 to −2.0). That comparison wasn't pre-registered, so it's a lead.
 
 ### Cost against accuracy
 
@@ -61,7 +66,7 @@ The full design is in [docs/eval-design.md](docs/eval-design.md), and every trad
 - **One change at a time.** Each config differs from its parent by one flag of a single `PipelineConfig`, which promptfoo passes to one custom Python provider. A custom Python assertion scores EX.
 - **Determinism.** Temperature 0, seed 42, thinking off. Voting candidates sample with fixed seeds. Every LLM call is cached on disk, keyed by its exact request, so reruns are free and identical, and timings are the original call's. A hash-seed nondeterminism bug was found by that cache and fixed (D17).
 - **No leakage.** Gold SQL never reaches a prompt except in the labelled oracle config. SQL-check detectors were calibrated on query-log gold SQL, never on eval.
-- **Provenance.** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX runner). Ollama 0.40.16, promptfoo 0.125.1, Node 22.23. All 10,234 LLM calls came from that one model build.
+- **Provenance.** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX runner). Ollama 0.40.16, promptfoo 0.125.1, Node 22.23. All 10,234 qwen3.5 calls came from that one model build. The rerun's 4,209 calls came from `qwen2.5-coder:7b`, digest `dae161e27b0e` (7.6B, Q4_K_M, llama.cpp runner).
 
 ## Reproduce
 
@@ -103,6 +108,12 @@ The T1 check on the 468-question test split (about 80 min):
 uv run python scripts/run_ablation.py promptfoo/configs/06_trimming.yaml --split test --providers '^(C3-fused|T1-short-profile)(\+hints)?$'
 ```
 
+The qwen2.5-coder:7b rerun of the headline configs (about 5 h of model time):
+
+```bash
+make run-07 SPLIT=eval
+```
+
 ```bash
 make summary
 ```
@@ -119,7 +130,7 @@ promptfoo/         provider (one PipelineConfig per config), EX assertion, one Y
 scripts/           data prep and the two-pass runner (warm-up at -j 1, then a cache-only combined pass)
 analysis/          paired tests, per-question export, summary + figures, error analysis
 results/           per-run tables, per_question.csv, summary.md (raw promptfoo JSON stays local)
-docs/              results, eval design, decisions log (D1–D21), error analysis, paper summary, figures
+docs/              results, eval design, decisions log (D1–D22), error analysis, paper summary, figures
 tests/             99 pytest tests: evaluator, schema renderer, linking, few-shot leakage, voting, checks, trims
 tasks/             the plan and the lessons log kept during the project
 ```
@@ -127,7 +138,7 @@ tasks/             the plan and the lessons log kept during the project
 ## Limitations
 
 - **Sample size.** At n = 150, a single accuracy has a ±8 pp CI. Paired tests detect differences of roughly 5 pp and up. "Not significant" here means "smaller than that, if real".
-- **One model, one seed.** Run-to-run variance across seeds isn't measured. A `qwen2.5-coder:7b` rerun is planned but not run yet. The 468-question test split has been run only for C3 vs T1, where it reversed the eval reading.
+- **Two local models, one seed.** Run-to-run variance across seeds isn't measured. The `qwen2.5-coder:7b` rerun covers the seven headline configs on eval only, and it reuses qwen3.5's profile summaries. The 468-question test split has been run only for C3 vs T1, where it reversed the eval reading.
 - **The summarizer is the same 9B model.** An audit found 20% of its profile summaries wrong (D14). A stronger summarizer, as in the paper, could widen the profiling gain.
 - **Few-shot pools differ from the paper.** The "query log" pool is BIRD dev questions on the same databases. BIRD has no real query logs.
 - **BIRD gold SQL has errors.** 3 of 20 sampled failures are gold-side. All configs share the same gold, so comparisons stay fair, but absolute numbers are bounded by it.
@@ -143,6 +154,7 @@ From [tasks/lessons.md](tasks/lessons.md), which I kept as the project ran:
 - **Correct for multiple tests.** A lone p = 0.03 out of four comparisons isn't a finding.
 - **Size a non-inferiority margin against the CI you'll actually get.** I pre-registered "safe to trim = loss under 5 pp", but at n = 150 the paired CIs are ±5–7 pp wide, so a trim with no true effect fails about half the time or more. I reported the verdicts as registered: one trim hurts, and the other three are "inconclusive" rather than "safe".
 - **A point estimate of ~0 is not "no loss".** Short summaries scored +0.7 pp on the 150 eval questions, and I called them the next candidate. On 468 questions they cost −4.5 pp (Holm p = 0.025). An inconclusive result is a reason to run more questions, not a lean toward "safe".
+- **Compare models in more than one condition.** The coder was ahead of qwen3.5 without hints and behind it with hints in 6 of 7 configs. A comparison run in only one setting would have pointed to either model as the better one.
 - **Quote numbers from the source, never from memory.** I misquoted the paper's Table 2 once and caught it only by re-reading the PDF.
 
 ## License and data

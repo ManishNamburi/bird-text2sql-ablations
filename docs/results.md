@@ -218,3 +218,59 @@ Cost on test: T1 saves 3,549 prompt tokens (−44%) and 0.65 s per question. Val
 - **Short profiles are not a free 44%.** They cost −4.5 pp without hints on the 468-question test split. With hints they stay within 5 pp, so a hints-only deployment could consider them, but that reading wasn't pre-registered as a verdict.
 - **BIRD value descriptions and the system rules** can probably go, but the evidence is "no detectable effect", not "no effect".
 - **The cost picture doesn't change:** the biggest cost lever is still the C1-vs-C3 choice (24% of the tokens) and, above that, linking (experiment 02), not trimming sections inside one prompt.
+
+---
+
+## Experiment 07 — The same pipeline on qwen2.5-coder:7b (D1, D22)
+
+Do the ladder's gains depend on the model? The seven headline configs (C0, C1, C3, C4, C6, C7, oracle), ± hints, were re-run with one change: `model: qwen2.5-coder:7b`. The profile summaries and their embeddings stay qwen3.5's (D11), so the comparison isolates linking and SQL generation. Prompts, seeds, temperatures and the vote and check rules are frozen; nothing was tuned for the coder. The spec and analysis were written in `tasks/todo.md` before any coder run. The 30 dev questions were used only as a harness check.
+
+Run: 3,513 new LLM calls (291 min of model time), 0 errors, combined pass fully cached, largest prompt 19,505 tokens against the coder's enforced `num_ctx` of 24,576. Wall clock was 8.2 h because the Mac idle-slept for part of the night; the recorded timings are unaffected (`time.perf_counter` stops during sleep, and every call's time matches Ollama's own prompt + decode time).
+
+### Model gap per config (primary)
+
+| Config | qwen3.5 → coder, no hints | Δ (95% CI), fixed / broke | qwen3.5 → coder, with hints | Δ (95% CI), fixed / broke | Coder s/q (no hints) |
+|---|---|---|---|---|---|
+| C0 | 24.0 → 28.7 | +4.7 (−2.0 to +12.0), 18 / 11 | 50.7 → 46.0 | −4.7 (−12.7 to +3.3), 15 / 22 | 2.4 |
+| C1 | 32.7 → 37.3 | +4.7 (−2.7 to +12.0), 20 / 13 | 51.3 → 46.7 | −4.7 (−12.0 to +2.7), 14 / 21 | 2.7 |
+| C3 | 34.7 → 39.3 | +4.7 (−4.0 to +13.3), 26 / 19 | 53.3 → 50.7 | −2.7 (−12.0 to +6.0), 22 / 26 | 4.7 |
+| C4 | 39.3 → 40.0 | +0.7 (−6.0 to +7.3), 13 / 12 | 56.7 → 49.3 | −7.3 (−16.0 to +1.3), 16 / 27 | 37.0 |
+| C6 | 40.0 → 42.0 | +2.0 (−4.7 to +8.7), 15 / 12 | 58.7 → 50.7 | −8.0 (−16.0 to +0.0), 12 / 24 | 46.2 |
+| C7 | 41.3 → 42.0 | +0.7 (−6.0 to +7.3), 14 / 13 | 59.3 → 50.7 | −8.7 (−16.0 to −1.3), 11 / 24 | 47.1 |
+| Oracle | 53.3 → 52.7 | −0.7 (−7.3 to +6.0), 12 / 13 | 61.3 → 58.7 | −2.7 (−10.0 to +4.7), 15 / 19 | 3.8 |
+
+*Δ = coder − qwen3.5 on the same 150 questions, paired bootstrap CI. Exact McNemar, Holm over the 14 tests: every adjusted p is ≥ 0.57 (smallest raw p = 0.041, C7 with hints). The coder ladder, its Holm-adjusted pairwise matrices and the step × model table are in `results/summary.md`.*
+
+### Findings
+
+1. **No config shows a significant model gap.** The point estimates lean one way per hint setting: the coder is ahead by +0.7 to +4.7 pp without hints (oracle −0.7) and behind by −2.7 to −8.7 pp with hints. The CIs are up to 17 pp wide, so "no detectable gap" is also consistent with a real loss of up to ~16 pp with hints.
+2. **The ladder's shape mostly replicates.** Judged by sign and significance of each step, as for qwen3.5:
+   - **BIRD descriptions** (C0 → C1, no hints): +8.7 pp, raw p = 0.015, the same as on qwen3.5. With hints: +0.7 on both.
+   - **Profiling** (C1 → C3): +2.0 / +4.0, not significant (qwen3.5: +2.0 / +2.0).
+   - **Linking** (C3 → C4): +0.7 / −1.3, not significant (qwen3.5: +4.7 / +3.3, also not significant). This is the one step whose sign flips with hints. The step × model difference is −4.0 (−12.0 to +4.0) without hints and −4.7 (−13.3 to +4.0) with them: unknown, not "linking is worse on the coder".
+   - **Voting** +2.0 / +1.3 and **checks** +0.0 / +0.0, not significant (qwen3.5: +0.7 / +2.0 and +1.3 / +0.7).
+   - **Perfect linking** (oracle vs C4): +12.7 / +9.3, both p < 0.001 (qwen3.5: +14.0, p < 0.001 / +4.7, p = 0.143).
+   - **Full pipeline vs DDL** (C0 → C7, no hints): +13.3 pp, Holm p = 0.003 (qwen3.5: +17.3, Holm p = 0.001). Against C1 it's +4.7 (Holm p = 1.000; qwen3.5: +8.7, Holm p = 0.35).
+3. **Linking recall is the lever on both models.** The coder's linker drops a needed column on 55 of 150 questions (recall 0.878; qwen3.5: 67, 0.85). When it does, C4 scores 21.8% (qwen3.5: 19.4%); when every needed column survives, 50.5% (qwen3.5: 55.4%).
+4. **The SQL checks fire but change nothing on the coder.** They fired on 13 / 12 questions, every correction made the requested rewrite, and the final SQL differs from C6's on 8 questions in each setting, with 0 EX flips. The coder never writes string concatenation, the check behind all of qwen3.5's C7 gains (§05).
+5. **Hints help the coder less (post hoc).** Hint gains per config, qwen3.5 / coder:
+
+   | | C0 | C1 | C3 | C4 | C6 | C7 | Oracle |
+   |---|---|---|---|---|---|---|---|
+   | qwen3.5 | +26.7 | +18.7 | +18.7 | +17.3 | +18.7 | +18.0 | +8.0 |
+   | coder | +17.3 | +9.3 | +11.3 | +9.3 | +8.7 | +8.7 | +6.0 |
+   | difference (95% CI) | −9.3 (−18.7 to −0.7) | −9.3 (−17.3 to −1.3) | −7.3 (−18.0 to +3.3) | −8.0 (−17.3 to +1.3) | −10.0 (−18.7 to −1.3) | −9.3 (−18.0 to −0.7) | −2.0 (−10.0 to +5.3) |
+
+   Pooled over the 7 configs: −7.9 pp (−14.1 to −2.0). This test wasn't pre-registered, and the 7 configs share questions, so it's a lead, not a result. Its pattern explains finding 1: the coder starts higher without hints and gains less from them. Its valid-SQL rate also drops with hints in C0, C1 and C3 (89.3 → 86.7, 92.0 → 86.0, 88.7 → 82.0), while qwen3.5's stays within 1.4 pp. In a seeded sample of 8 of the 22 C0 + hints questions qwen3.5 gets right and the coder misses (15 go the other way):
+   - 2 add output columns nobody asked for (qid 366 adds `status`; qid 50 adds `AvgScrMath`);
+   - 2 depart from the hint's literal mapping (qid 772 joins to colour names where the hint says `eye_colour_id`; qid 377 writes `NOT LIKE '%Angel%'` where the hint says "is not 'Angel'");
+   - 3 use a wrong or non-existent column (qids 633, 1189, 954);
+   - 1 is a value-case error (qid 1484: `'discount'` for `'Discount'`).
+
+   At n = 8 that's a description, not a mechanism.
+6. **Cost is about the same.** The coder is 5–17% faster per question across the 7 configs (C1 2.7 vs 3.1 s; C7 47.1 vs 50.9 s) and uses 1–13% fewer prompt tokens (13% only on C0's bare DDL), a tokenizer difference: the prompts are the same text.
+
+### Answer to "do the gains depend on the model?"
+- **Not detectably, at n = 150.** A 7B code model and a 9B general model give the same ladder shape: descriptions help without hints, linking adds little, perfect linking adds a lot, and voting and checks add almost nothing.
+- **The conclusions from 01–06 hold on both models:** C1 is the cheap deployable pick, and linking recall is where the remaining accuracy is.
+- **The open question is the hint × model interaction.** The coder uses hints less well. Testing it properly needs a pre-registered comparison on the 468-question test split.

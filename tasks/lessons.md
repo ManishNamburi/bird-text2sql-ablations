@@ -35,6 +35,7 @@ Rules learned while working on this project. Review at session start.
 - **Size a non-inferiority margin against the CI you will get, before pre-registering it.** I set "safe = CI lower bound > −5 pp" for T1–T4, but at n = 150 the paired CIs are ±4.7 to ±6.7 pp, so a trim with a true Δ of 0 fails about half the time or more. Compute the expected half-width from a previous paired comparison first, then pick the margin or the n. (2026-11-17)
 - **An inconclusive result with a ~0 point estimate is not a lean toward "safe".** T1 was +0.7 pp on eval (CI ±6.7) and I called it the next candidate; on 468 questions it was −4.5 pp (Holm p = 0.025). Write "unknown, run more questions", and keep recommendations off inconclusive results. (2026-11-17)
 - **Claims of the form "X still contains some Y" need a count.** I wrote that short summaries quote values "now and then"; the count was 403 of 798. (2026-11-17)
+- **Start a multi-hour run under `caffeinate -i -s -w <pid>`.** The Mac idle-slept overnight during the coder eval run and only progressed during maintenance wakes: about 18 minutes of LLM time in 3 hours. Results and recorded timings were unaffected (`time.perf_counter` stops during sleep on macOS, and every call's time matched Ollama's own prompt+decode time); only wall-clock was lost. (2026-11-18)
 
 ## Corrections from the user
 _(none yet)_

@@ -23,7 +23,7 @@ import pandas as pd
 from birdeval.report import load_results
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPERIMENTS = ["01_metadata", "02_linking", "03_fewshot", "04_voting", "05_checks", "06_trimming"]
+EXPERIMENTS = ["01_metadata", "02_linking", "03_fewshot", "04_voting", "05_checks", "06_trimming", "07_coder"]
 OUT = ROOT / "results" / "per_question.csv"
 # Test-split runs (all 468 non-dev questions, a superset of eval): only T1 vs C3 so far.
 TEST_RUNS = ["06_trimming"]

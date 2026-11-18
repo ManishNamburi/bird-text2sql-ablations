@@ -66,7 +66,76 @@ Test = every non-dev question, so it contains the 150 eval questions above (thei
 
 Cost on all 468 test questions, no hints: C3 8,074 prompt tok/q, 4.3 s/q; T1 4,525 tok/q (-44%), 3.6 s/q. Valid SQL: C3 90.4%, T1 90.6%.
 
-## Every eval config
+## qwen2.5-coder:7b rerun of the headline configs (D22)
+
+Same pipeline, prompts, seeds and frozen eval split; only the model changes. The profile summaries and embeddings stay qwen3.5's. Analysis fixed before the run in `tasks/todo.md`.
+
+### Model gap per config (primary)
+
+Δ = coder − qwen3.5 on the same 150 questions, paired bootstrap CI; exact McNemar, Holm over the 14 tests in this table. Cost columns are the no-hints config.
+
+| Config | qwen3.5 / coder, no hints | Δ coder − qwen3.5 (95% CI), fixed / broke, Holm p | qwen3.5 / coder, with hints | Δ (95% CI), fixed / broke, Holm p | Coder valid SQL % | Coder tok/q | Coder s/q |
+|---|---|---|---|---|---|---|---|
+| **C0** | 24.0 / 28.7 | +4.7 (-2.0 to +12.0), 18 / 11, p = 1.000 | 50.7 / 46.0 | -4.7 (-12.7 to +3.3), 15 / 22, p = 1.000 | 89.3 | 716 | 2.4 |
+| **C1** | 32.7 / 37.3 | +4.7 (-2.7 to +12.0), 20 / 13, p = 1.000 | 51.3 / 46.7 | -4.7 (-12.0 to +2.7), 14 / 21, p = 1.000 | 92.0 | 1,847 | 2.7 |
+| **C3** | 34.7 / 39.3 | +4.7 (-4.0 to +13.3), 26 / 19, p = 1.000 | 53.3 / 50.7 | -2.7 (-12.0 to +6.0), 22 / 26, p = 1.000 | 88.7 | 8,008 | 4.7 |
+| **C4** | 39.3 / 40.0 | +0.7 (-6.0 to +7.3), 13 / 12, p = 1.000 | 56.7 / 49.3 | -7.3 (-16.0 to +1.3), 16 / 27, p = 1.000 | 90.0 | 17,853 | 37.0 |
+| **C6** | 40.0 / 42.0 | +2.0 (-4.7 to +8.7), 15 / 12, p = 1.000 | 58.7 / 50.7 | -8.0 (-16.0 to +0.0), 12 / 24, p = 0.848 | 95.3 | 19,572 | 46.2 |
+| **C7** | 41.3 / 42.0 | +0.7 (-6.0 to +7.3), 14 / 13, p = 1.000 | 59.3 / 50.7 | -8.7 (-16.0 to -1.3), 11 / 24, p = 0.573 | 95.3 | 19,804 | 47.1 |
+| **Oracle** | 53.3 / 52.7 | -0.7 (-7.3 to +6.0), 12 / 13, p = 1.000 | 61.3 / 58.7 | -2.7 (-10.0 to +4.7), 15 / 19, p = 1.000 | 94.7 | 728 | 3.8 |
+
+### The ladder on qwen2.5-coder:7b
+
+| Step | What changes | EX no hints (95% CI) | Δ vs previous (95% CI), p | EX with hints (95% CI) | Δ vs previous (95% CI), p | Prompt tok/q | s/q | Paper, GPT-4o (no hints / hints) |
+|---|---|---|---|---|---|---|---|---|
+| **C0** | DDL only | 28.7 (22–36) | — | 46.0 (38–54) | — | 716 | 2.4 | 49.8 / — |
+| **C1** | + BIRD column descriptions | 37.3 (30–45) | +8.7 (+2.0 to +15.3), p = 0.015 | 46.7 (39–55) | +0.7 (-3.3 to +4.7), p = 1.000 | 1,847 | 2.7 | 59.6 / 72.0 |
+| **C3** | + LLM profiling summaries (fused) | 39.3 (32–47) | +2.0 (-4.7 to +8.7), p = 0.690 | 50.7 (43–59) | +4.0 (-1.3 to +9.3), p = 0.238 | 8,008 | 4.7 | 63.2 / 73.0 |
+| **C4** | + schema linking | 40.0 (33–48) | +0.7 (-4.7 to +6.0), p = 1.000 | 49.3 (41–57) | -1.3 (-6.0 to +3.3), p = 0.791 | 17,853 | 37.0 | 63.2 / 73.0 |
+| **C6** | + 3 candidates, majority vote | 42.0 (34–50) | +2.0 (+0.0 to +4.7), p = 0.250 | 50.7 (43–59) | +1.3 (-1.3 to +4.0), p = 0.625 | 19,572 | 46.2 | not isolated |
+| **C7** | + SQL sanity checks | 42.0 (34–50) | +0.0 (+0.0 to +0.0), p = 1.000 | 50.7 (43–59) | +0.0 (+0.0 to +0.0), p = 1.000 | 19,804 | 47.1 | not isolated |
+| **Oracle** | gold SQL's columns only (upper bound) | 52.7 (45–60) | +12.7 vs C4 (+6.7 to +18.7), p < 0.001 | 58.7 (51–66) | +9.3 vs C4 (+4.7 to +14.7), p < 0.001 | 728 | 3.8 | 69.0 / 77.4 |
+
+*Paper column: GPT-4o, as in the qwen3.5 ladder above.*
+
+#### Pairwise tests, Holm-adjusted (coder)
+
+No hints:
+
+| from ↓ / to → | C1 | C3 | C4 | C6 | C7 | Oracle |
+|---|---|---|---|---|---|---|
+| **C0** | +8.7 (0.161) | +10.7 (0.108) | **+11.3 (0.023)** | **+13.3 (0.003)** | **+13.3 (0.003)** | **+24.0 (<0.001)** |
+| **C1** |  | +2.0 (1.000) | +2.7 (1.000) | +4.7 (1.000) | +4.7 (1.000) | **+15.3 (<0.001)** |
+| **C3** |  |  | +0.7 (1.000) | +2.7 (1.000) | +2.7 (1.000) | **+13.3 (<0.001)** |
+| **C4** |  |  |  | +2.0 (1.000) | +2.0 (1.000) | **+12.7 (0.001)** |
+| **C6** |  |  |  |  | +0.0 (1.000) | **+10.7 (0.023)** |
+| **C7** |  |  |  |  |  | **+10.7 (0.023)** |
+
+With hints:
+
+| from ↓ / to → | C1 | C3 | C4 | C6 | C7 | Oracle |
+|---|---|---|---|---|---|---|
+| **C0** | +0.7 (1.000) | +4.7 (1.000) | +3.3 (1.000) | +4.7 (1.000) | +4.7 (1.000) | **+12.7 (0.025)** |
+| **C1** |  | +4.0 (1.000) | +2.7 (1.000) | +4.0 (1.000) | +4.0 (1.000) | **+12.0 (0.018)** |
+| **C3** |  |  | -1.3 (1.000) | +0.0 (1.000) | +0.0 (1.000) | +8.0 (0.189) |
+| **C4** |  |  |  | +1.3 (1.000) | +1.3 (1.000) | **+9.3 (0.011)** |
+| **C6** |  |  |  |  | +0.0 (1.000) | +8.0 (0.136) |
+| **C7** |  |  |  |  |  | +8.0 (0.136) |
+
+### Does a step's gain depend on the model? (exploratory)
+
+Difference = Δstep(coder) − Δstep(qwen3.5), bootstrap CI over questions. Expected to be wide; a CI that includes 0 means unknown, not equal.
+
+| Step | Δ qwen3.5 / Δ coder, no hints | difference (95% CI) | Δ qwen3.5 / Δ coder, with hints | difference (95% CI) |
+|---|---|---|---|---|
+| → **C1** | +8.7 / +8.7 | +0.0 (-8.7 to +8.7) | +0.7 / +0.7 | +0.0 (-7.3 to +7.3) |
+| → **C3** | +2.0 / +2.0 | +0.0 (-10.0 to +10.0) | +2.0 / +4.0 | +2.0 (-6.7 to +11.3) |
+| → **C4** | +4.7 / +0.7 | -4.0 (-12.0 to +4.0) | +3.3 / -1.3 | -4.7 (-13.3 to +4.0) |
+| → **C6** | +0.7 / +2.0 | +1.3 (-2.0 to +4.7) | +2.0 / +1.3 | -0.7 (-4.7 to +3.3) |
+| → **C7** | +1.3 / +0.0 | -1.3 (-3.3 to +0.0) | +0.7 / +0.0 | -0.7 (-2.0 to +0.0) |
+| **Oracle vs C4** | +14.0 / +12.7 | -1.3 (-8.7 to +6.0) | +4.7 / +9.3 | +4.7 (-2.7 to +12.0) |
+
+## Every eval config (qwen3.5:9b)
 
 | Config | Experiment | EX no hints (95% CI) | EX with hints (95% CI) | Valid SQL % (no hints) | LLM calls/q | Prompt tok/q | s/q |
 |---|---|---|---|---|---|---|---|

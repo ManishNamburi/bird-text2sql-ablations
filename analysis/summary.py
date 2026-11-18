@@ -9,6 +9,7 @@ can be recomputed without models, databases or promptfoo.
   - pairwise McNemar matrix over the ladder, Holm-adjusted for the number of tests
   - prompt trimming T1-T4 vs C3 with the pre-registered non-inferiority verdicts
   - T1 vs C3 on the 468-question test split (results/per_question_test.csv)
+  - the headline configs on qwen2.5-coder:7b (labels ending in @coder): model gap, ladder, step x model
   - every eval config (cost and accuracy)
   - figures: the ladder, and cost vs accuracy with the Pareto frontier
 
@@ -35,6 +36,7 @@ from birdeval.report import wilson  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 CSV = ROOT / "results" / "per_question.csv"
 TEST_CSV = ROOT / "results" / "per_question_test.csv"  # T1 vs C3 on the test split only
+CODER = "@coder"  # label suffix of the qwen2.5-coder:7b rerun (07); every other config is qwen3.5:9b
 OUT = ROOT / "results" / "summary.md"
 FIG = ROOT / "docs" / "figures"
 
@@ -106,7 +108,8 @@ def fmt_p(p: float, eq: bool = False) -> str:
     return f"p = {p:.3f}" if eq else f"{p:.3f}"
 
 
-def ladder_table(stats: pd.DataFrame, w: pd.DataFrame) -> str:
+def ladder_table(stats: pd.DataFrame, w: pd.DataFrame, suffix: str = "") -> str:
+    """suffix selects a model's labels: "" for qwen3.5:9b, CODER for qwen2.5-coder:7b."""
     head = ("| Step | What changes | EX no hints (95% CI) | Δ vs previous (95% CI), p | "
             "EX with hints (95% CI) | Δ vs previous (95% CI), p | Prompt tok/q | s/q | "
             "Paper, GPT-4o (no hints / hints) |\n|---|---|---|---|---|---|---|---|---|\n")
@@ -114,18 +117,18 @@ def ladder_table(stats: pd.DataFrame, w: pd.DataFrame) -> str:
     for i, (config, short, what) in enumerate([*LADDER, ORACLE]):
         cells = [f"**{short}**", what]
         for hints in (False, True):
-            s = stats.loc[lbl(config, hints)]
+            s = stats.loc[lbl(config + suffix, hints)]
             cells.append(f"{s.ex:.1f} ({s.lo:.0f}–{s.hi:.0f})")
             if 0 < i < len(LADDER):
-                prev = lbl(LADDER[i - 1][0], hints)
-                r = paired(w, prev, lbl(config, hints))
+                prev = lbl(LADDER[i - 1][0] + suffix, hints)
+                r = paired(w, prev, lbl(config + suffix, hints))
                 cells.append(f"{r['delta']:+.1f} ({r['lo']:+.1f} to {r['hi']:+.1f}), {fmt_p(r['p'], True)}")
             elif config == ORACLE[0]:
-                r = paired(w, lbl("C4-linked", hints), lbl(config, hints))
+                r = paired(w, lbl("C4-linked" + suffix, hints), lbl(config + suffix, hints))
                 cells.append(f"{r['delta']:+.1f} vs C4 ({r['lo']:+.1f} to {r['hi']:+.1f}), {fmt_p(r['p'], True)}")
             else:
                 cells.append("—")
-        s = stats.loc[config]
+        s = stats.loc[config + suffix]
         paper = PAPER.get(config)
         cells += [f"{s.tok:,.0f}", f"{s.sec:.1f}",
                   " / ".join("—" if v is None else f"{v:.1f}" for v in paper) if paper else "not isolated"]
@@ -197,8 +200,8 @@ def t1_test_table(test: pd.DataFrame, eval_ids: set[int], trim: str = "T1-short-
     return head + "\n".join(lines) + "\n" + cost
 
 
-def mcnemar_matrix(w: pd.DataFrame, hints: bool) -> str:
-    names = [(lbl(c, hints), s) for c, s, _ in [*LADDER, ORACLE]]
+def mcnemar_matrix(w: pd.DataFrame, hints: bool, suffix: str = "") -> str:
+    names = [(lbl(c + suffix, hints), s) for c, s, _ in [*LADDER, ORACLE]]
     pairs = list(itertools.combinations(range(len(names)), 2))
     res = [paired(w, names[i][0], names[j][0], n_boot=0) for i, j in pairs]
     adj = multipletests([r["p"] for r in res], method="holm")[1]
@@ -213,6 +216,70 @@ def mcnemar_matrix(w: pd.DataFrame, hints: bool) -> str:
         rows.append(f"| **{names[i][1]}** | " + " | ".join(
             cell.get((i, j), "") for j in range(1, len(names))) + " |")
     return head + "\n".join(rows) + "\n"
+
+
+def model_gap_table(stats: pd.DataFrame, w: pd.DataFrame) -> str:
+    """Pre-registered primary test of the coder rerun: coder minus qwen3.5 per headline config,
+    paired on the same questions, McNemar Holm-adjusted over all 2 × 7 configs."""
+    configs = [*LADDER, ORACLE]
+    tests = [(c, h) for c, _, _ in configs for h in (False, True)]
+    res = {t: paired(w, lbl(t[0], t[1]), lbl(t[0] + CODER, t[1])) for t in tests}
+    adj = dict(zip(tests, multipletests([res[t]["p"] for t in tests], method="holm")[1]))
+    head = ("| Config | qwen3.5 / coder, no hints | Δ coder − qwen3.5 (95% CI), fixed / broke, Holm p | "
+            "qwen3.5 / coder, with hints | Δ (95% CI), fixed / broke, Holm p | Coder valid SQL % | "
+            "Coder tok/q | Coder s/q |\n|---|---|---|---|---|---|---|---|\n")
+    lines = []
+    for config, short, _ in configs:
+        cells = [f"**{short}**"]
+        for h in (False, True):
+            r = res[(config, h)]
+            cells += [f"{stats.loc[lbl(config, h)].ex:.1f} / {stats.loc[lbl(config + CODER, h)].ex:.1f}",
+                      f"{r['delta']:+.1f} ({r['lo']:+.1f} to {r['hi']:+.1f}), {r['fixed']} / {r['broke']}, "
+                      f"{fmt_p(adj[(config, h)], True)}"]
+        s = stats.loc[config + CODER]
+        cells += [f"{s.valid:.1f}", f"{s.tok:,.0f}", f"{s.sec:.1f}"]
+        lines.append("| " + " | ".join(cells) + " |")
+    return head + "\n".join(lines) + "\n"
+
+
+def step_by_model_table(w: pd.DataFrame, n_boot: int = 10_000, seed: int = 0) -> str:
+    """Exploratory: does a step's gain depend on the model? Δstep(coder) − Δstep(qwen3.5), with a
+    bootstrap CI that resamples questions jointly for all four configs involved."""
+    steps = [(LADDER[i - 1][0], c, s) for i, (c, s, _) in enumerate(LADDER) if i > 0]
+    steps.append(("C4-linked", ORACLE[0], "Oracle vs C4"))
+    head = ("| Step | Δ qwen3.5 / Δ coder, no hints | difference (95% CI) | "
+            "Δ qwen3.5 / Δ coder, with hints | difference (95% CI) |\n|---|---|---|---|---|\n")
+    idx = np.random.default_rng(seed).integers(0, len(w), size=(n_boot, len(w)))
+    lines = []
+    for a, b, short in steps:
+        cells = [f"**{short}**" if short.startswith("Oracle") else f"→ **{short}**"]
+        for h in (False, True):
+            dq = (w[lbl(b, h)] - w[lbl(a, h)]).to_numpy()
+            dc = (w[lbl(b + CODER, h)] - w[lbl(a + CODER, h)]).to_numpy()
+            lo, hi = np.percentile((dc - dq)[idx].mean(axis=1), [2.5, 97.5])
+            cells += [f"{100 * dq.mean():+.1f} / {100 * dc.mean():+.1f}",
+                      f"{100 * (dc - dq).mean():+.1f} ({100 * lo:+.1f} to {100 * hi:+.1f})"]
+        lines.append("| " + " | ".join(cells) + " |")
+    return head + "\n".join(lines) + "\n"
+
+
+def coder_section(df: pd.DataFrame) -> str:
+    stats, w = per_config(df), wide(df)
+    return (
+        "\n## qwen2.5-coder:7b rerun of the headline configs (D22)\n\n"
+        "Same pipeline, prompts, seeds and frozen eval split; only the model changes. The profile summaries and "
+        "embeddings stay qwen3.5's. Analysis fixed before the run in `tasks/todo.md`.\n\n"
+        "### Model gap per config (primary)\n\n"
+        f"Δ = coder − qwen3.5 on the same {len(w)} questions, paired bootstrap CI; exact McNemar, Holm over the "
+        f"{2 * (len(LADDER) + 1)} tests in this table. Cost columns are the no-hints config.\n\n"
+        + model_gap_table(stats, w) +
+        "\n### The ladder on qwen2.5-coder:7b\n\n" + ladder_table(stats, w, CODER) +
+        "\n*Paper column: GPT-4o, as in the qwen3.5 ladder above.*\n\n"
+        "#### Pairwise tests, Holm-adjusted (coder)\n\n"
+        "No hints:\n\n" + mcnemar_matrix(w, False, CODER) + "\nWith hints:\n\n" + mcnemar_matrix(w, True, CODER) +
+        "\n### Does a step's gain depend on the model? (exploratory)\n\n"
+        "Difference = Δstep(coder) − Δstep(qwen3.5), bootstrap CI over questions. Expected to be wide; a CI that "
+        "includes 0 means unknown, not equal.\n\n" + step_by_model_table(w))
 
 
 def all_configs_table(stats: pd.DataFrame) -> str:
@@ -328,7 +395,8 @@ def pareto_figure(stats: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    df = pd.read_csv(CSV)
+    full = pd.read_csv(CSV)
+    df = full[~full["config"].str.contains(CODER, regex=False)]  # the qwen3.5 sections and figures
     stats, w = per_config(df), wide(df)
     n_q = df["question_id"].nunique()
     plt.rcParams.update({"font.family": "DejaVu Sans", "svg.hashsalt": "birdeval", "svg.fonttype": "none"})
@@ -361,7 +429,8 @@ def main() -> None:
         "the comparison on the questions outside eval only; it is a secondary check and gets no verdict. "
         f"Source: `{TEST_CSV.relative_to(ROOT)}`.\n\n"
         + t1_test_table(pd.read_csv(TEST_CSV), set(df["question_id"])) +
-        "\n## Every eval config\n\n" + all_configs_table(stats) +
+        (coder_section(full) if len(df) < len(full) else "") +
+        "\n## Every eval config (qwen3.5:9b)\n\n" + all_configs_table(stats) +
         "\n![ladder](../docs/figures/ladder.png)\n\n![pareto](../docs/figures/pareto.png)\n")
     print(f"-> {OUT.relative_to(ROOT)}, {FIG.relative_to(ROOT)}/ladder.*, pareto.*")
 

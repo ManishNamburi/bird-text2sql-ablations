@@ -1,0 +1,68 @@
+# Experiment 07 — the headline configs rerun on qwen2.5-coder:7b (D1, D22).
+# Only `model` changes. Profile summaries and embeddings stay qwen3.5's (D11), and prompts,
+# seeds, temperatures, vote and check rules are frozen. The coder also does the linking calls.
+# Order matters for the warm-up: C4-linked fills the linking and candidate-1 cache that
+# C6-vote and C7 reuse.
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/07_coder.yaml --split dev
+description: "07 qwen2.5-coder:7b: C0, C1, C3, C4-oracle, C4, C6-vote, C7, hints on/off"
+
+prompts:
+  - "{{question}}" # unused by the pipeline provider; it builds its own prompts from vars
+
+providers:
+  - id: file://../providers/pipeline.py
+    label: C0-ddl@coder
+    config: { model: qwen2.5-coder:7b, metadata: none, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C1-bird@coder
+    config: { model: qwen2.5-coder:7b, metadata: bird, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C3-fused@coder
+    config: { model: qwen2.5-coder:7b, metadata: fused, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C4-oracle@coder
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: oracle, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C4-linked@coder
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C6-vote@coder
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C7@coder
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, checks: true, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C0-ddl@coder+hints
+    config: { model: qwen2.5-coder:7b, metadata: none, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C1-bird@coder+hints
+    config: { model: qwen2.5-coder:7b, metadata: bird, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C3-fused@coder+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C4-oracle@coder+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: oracle, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C4-linked@coder+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C6-vote@coder+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C7@coder+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, checks: true, hints: true }
+
+# Per-config percentages in the web viewer and JSON (named scores are summed per column;
+# __count = tests in the column). CIs and paired tests stay in analysis/analyze.py.
+derivedMetrics:
+  - name: EX_pct
+    value: 100 * ex / __count
+  - name: valid_sql_pct
+    value: 100 * valid_sql / __count
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex
