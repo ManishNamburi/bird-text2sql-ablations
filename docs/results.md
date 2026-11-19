@@ -274,3 +274,77 @@ Run: 3,513 new LLM calls (291 min of model time), 0 errors, combined pass fully 
 - **Not detectably, at n = 150.** A 7B code model and a 9B general model give the same ladder shape: descriptions help without hints, linking adds little, perfect linking adds a lot, and voting and checks add almost nothing.
 - **The conclusions from 01–06 hold on both models:** C1 is the cheap deployable pick, and linking recall is where the remaining accuracy is.
 - **The open question is the hint × model interaction.** The coder uses hints less well. Testing it properly needs a pre-registered comparison on the 468-question test split.
+
+---
+
+## Experiment 08 — promptfoo's own features, measured against execution (D23)
+
+Experiments 01–07 used promptfoo as a harness: one custom Python provider and one custom EX assertion. 08 uses the parts most promptfoo users rely on and checks each against the execution ground truth this project already has:
+- the native `ollama:chat` provider;
+- Python prompt functions, in a prompts × providers matrix (C1 ± hints × qwen3.5:9b / qwen2.5-coder:7b);
+- an output `transform`, `transformVars`, and promptfoo's response cache;
+- the built-in `is-sql` and `javascript` assertions;
+- a reference-free `llm-rubric` judge;
+- `PROMPTFOO_PASS_RATE_THRESHOLD` as a regression gate.
+
+The spec and analysis were written in `tasks/todo.md` before any 08 run. The rubric wording was iterated on the 30 dev questions only, and then frozen.
+
+Run (eval): 600 generations (two passes of 300, one model loaded at a time, judge off), then the full config with every generation served from promptfoo's cache and 600 live judge calls. 0 errors. Wall clock 4.1 h, of which the judge took 3.3 h, with no sleep events during the run.
+
+### 1. Does the native provider reproduce the custom one?
+
+| Cell | Same SQL as the custom provider's cached row | Of the rest: same as a fresh custom call | EX native / custom |
+|---|---|---|---|
+| C1 · coder | 150 / 150 | — | 37.3 / 37.3 |
+| C1+hints · coder | 150 / 150 | — | 46.7 / 46.7 |
+| C1 · qwen3.5 | 130 / 150 | 14 of 20 | 30.7 / 32.7 |
+| C1+hints · qwen3.5 | 127 / 150 | 12 of 23 | 50.0 / 51.3 |
+
+- **The coder cells are the clean test, and they match 300 of 300.** promptfoo's provider sends the same request as ours: same messages, same options, same reply.
+- **qwen3.5 differs on 43 of 300.** 26 of those match a fresh call through our own client, so the cached reply from two days earlier is what changed. The other 17 differ from both.
+- **Why:** qwen3.5 runs on Ollama's MLX runner, which doesn't reproduce every reply even between two identical requests a few minutes apart. Ollama version and model digest were unchanged. Streaming and the previous request's KV prefix were tested and ruled out (dev, `tasks/todo.md`). The coder's llama.cpp runner reproduced every reply.
+- **What this means for 01–07:** every qwen3.5 number there comes from one cached run, and every rerun replays that cache, so "rerunning gives identical results" holds. A fresh rerun would not reproduce it exactly: here it moved C1's EX by −2.0 and −1.3 pp.
+
+### 2. Cheap built-in checks against execution
+
+Pooled over the 600 outputs. "Executes" = `valid_sql`.
+
+| Check | Pass rate | Rejects SQL that executes | Accepts SQL that doesn't execute | Pass rate when EX is wrong |
+|---|---|---|---|---|
+| `is-sql` with `databaseType: Sqlite` | 99.2% | 0 / 545 | 50 / 55 | 98.6% |
+| `is-sql`, default dialect (MySQL) | 92.3% | 35 / 545 (6.4%) | 44 / 55 | 92.1% |
+| `javascript`: one SELECT/WITH statement | 100% | 0 / 545 | 55 / 55 | 100% |
+
+- **`is-sql` defaults to MySQL, and that costs a SQLite user real false alarms.** It rejected 35 queries that execute, and the SQLite dialect rejected none of those (exact McNemar p < 0.001). 32 of the 35 use `CAST(… AS REAL)`, the idiom BIRD's own gold SQL uses for percentages. The coder writes it more often, so its false-reject rate is 10.5% against qwen3.5's 2.5%.
+- **With the right dialect, `is-sql` is a syntax check and nothing more.** It accepted 50 of the 55 queries that fail to execute (a parser can't know which tables and columns exist) and 98.6% of the wrong answers.
+- **The single-statement check never fired.** Both models always wrote one SELECT. It costs nothing, and it would catch a model that starts appending a second statement.
+- None of the three is a proxy for accuracy. They are guards against malformed output, and BIRD's errors are semantic.
+
+### 3. A reference-free LLM judge against EX
+
+The grader is `qwen3.5:9b` (temperature 0, seed 42, thinking off, JSON output), pinned to local Ollama. Without a provider, `llm-rubric` grades remotely. It sees the question, BIRD's hint, the schema text C1 shows and the SQL. It never sees gold SQL or gold rows (tested). The frozen rubric is a strict 5-point checklist (columns and literals exist, joins, conditions, aggregations, output columns) that tells the grader that queries like these usually contain a mistake.
+
+| Cell | EX | Judge pass rate | Judge − EX |
+|---|---|---|---|
+| C1 · qwen3.5 | 30.7 | 30.0 | −0.7 |
+| C1+hints · qwen3.5 | 50.0 | 54.7 | +4.7 |
+| C1 · coder | 37.3 | 37.3 | 0.0 |
+| C1+hints · coder | 46.7 | 55.3 | +8.7 |
+
+- **Per question, the judge is a moderate proxy.** It agrees with EX on 72.2% of outputs, κ = 0.43 (bootstrap 0.33–0.53). It passes 70.0% of correct answers (173/247) and fails 73.7% of wrong ones (260/353). That's better than the spec's expectation of "well below 0.6", and still far from a replacement for execution.
+- **Per cell, the pass rates track EX, but the judge overstates the effect of hints.** On the coder, hints add +9.3 pp by EX and +18.0 by the judge: a difference of +8.7 pp (paired bootstrap CI +0.7 to +17.3). On qwen3.5 it's +19.3 vs +24.7, a difference of +5.3 (−2.7 to +14.0). The judge also swaps the top two cells: by EX, qwen3.5+hints (50.0) beats coder+hints (46.7); by the judge, the coder edges ahead (55.3 vs 54.7). This comparison was not a pre-registered test; it puts a number on the spec's "does the judge rank the cells the same way". The answer is no: an A/B decision made on the judge would have exaggerated the hint gain by up to twofold.
+- **A plausible reason, not tested:** the grader sees the hint in every cell (the rubric template always renders it; the spec said "when the prompt has one", see D23). SQL written with the hint follows its formula, which a hint-reading grader checks easily. Whether the SQL is right in the database it can't check.
+- **Grader errors: 33 of 600 (5.5%), counted as fails, as promptfoo does.** 29 of them hit the 4,096-token output cap: the grader, told to expect a mistake, keeps looking for one inside the JSON `reason` and never reaches a verdict. Those 29 replies are 47.5% of the judge's output tokens. A typical verdict is 119 tokens (median); the mean is 417.
+- **Self-preference (exploratory): none detected.** (Judge − EX) on qwen3.5's SQL minus the same on the coder's is −2.3 pp (−9.0 to +4.7). The judge is qwen3.5.
+- **Cost:** a verdict averages 2,289 prompt and 417 completion tokens, against ~1,900 and 62 for the SQL it grades. Judging took 3.3 h against 41 min for generation. A deliberative judge costs several times what it grades.
+
+### 4. The regression gate
+
+`make gate` runs C1 on the coder over the 30 dev questions with only the EX assertion, so promptfoo's pass rate is EX. With `PROMPTFOO_PASS_RATE_THRESHOLD=20` it exits 0 (baseline 26.7%, 8/30). At 30 it exits non-zero with promptfoo's "below the threshold" message. The coder was chosen because its runner reproduces every reply; a qwen3.5 gate could flip on an unchanged prompt. The gate needs a model, so it runs locally, not in CI.
+
+### Answer to "what does promptfoo itself give this project?"
+- **The native provider is a drop-in for single-call configs.** It reproduced the custom provider exactly where the runtime is deterministic. Python prompt functions kept the prompt text byte-identical to the pipeline's.
+- **promptfoo's cache made a two-model-plus-judge matrix practical** on 18 GB: generate one model at a time, then replay everything with only the judge live.
+- **Set `is-sql`'s `databaseType`.** The MySQL default rejected 6.4% of valid SQLite queries.
+- **Treat an LLM judge as a screen, not a metric.** κ = 0.43 against execution, and it doubled one A/B effect. Where execution is available, it's the metric. Where it isn't, the judge's errors are correlated with the intervention being tested, which is the case that matters.
+- **The reproducibility finding outranks the feature tour:** "temperature 0, seed 42" did not make qwen3.5:9b on MLX deterministic. The cache, not the seed, is what makes this project's numbers reproducible.

@@ -53,6 +53,7 @@ promptfoo's own prompt template is a placeholder (`{{question}}`). Multi-step co
 - **Two-pass runner** (`scripts/run_ablation.py`):
   1. A warm-up per config at concurrency 1, so timings aren't distorted by parallel requests.
   2. A combined pass at concurrency 4 with `BIRDEVAL_CACHE_ONLY=1`. A cache miss there raises an error instead of calling the model, and the runner fails on any provider error.
+- **The seed doesn't make qwen3.5 deterministic; the cache does (D23).** On Ollama's MLX runner, qwen3.5:9b didn't reproduce 43 of 300 C1 replies cached two days earlier, at temperature 0 and seed 42, with the same digest and Ollama version. 17 of those also differed from a fresh call. The coder (llama.cpp runner) reproduced 300 of 300. Every reported number is therefore a replay of one recorded run: reruns are identical, but a fresh rerun of qwen3.5 would move by a point or two.
 - **Nondeterminism shows up as cache misses.** A cache miss on an unchanged pipeline led to a real bug: value-index ties depended on `PYTHONHASHSEED`, so prompts differed between processes. It was fixed with a regression test that runs the lookup under three hash seeds.
 
 ## Leakage rules
@@ -78,14 +79,26 @@ Timings come from one machine (MacBook Pro M3 Pro, 18 GB, Ollama MLX runner), wh
 - **Versions:** Ollama 0.40.16, promptfoo 0.125.1, Node 22.23, Python 3.12.
 - **One build behind every result:** all 10,234 cached qwen3.5 calls were made after that model was pulled, under that tag.
 - **The model rerun (D22):** `qwen2.5-coder:7b`, digest `dae161e27b0e` (7.6B, Q4_K_M, llama.cpp runner, `num_ctx` enforced), 4,209 cached calls.
+- **Experiment 08 (D23):** 600 generations and 600 judge verdicts on eval, through promptfoo's native provider and its own cache, with the same two digests.
 - **Going forward,** the runner writes these facts into every `results/*.md` (D1 correction).
 
-## promptfoo features used (D18)
+## promptfoo features used (D18, D23)
 
+Experiments 01–07, through the custom provider:
 - Custom Python provider and assertion.
 - Named scores with `derivedMetrics` (EX %, valid-SQL %).
 - `--tag split=… experiment=…` on every run.
 - A provider-returned `prompt` and `latencyMs`, so the web viewer shows the real prompt and true latency.
 - `REQUEST_TIMEOUT_MS` raised to 30 min, because one test is a whole pipeline.
 
-Skipped, with reasons in D18: promptfoo's cache, `--resume`, `--repeat`, the native `ollama:` provider, and test generators.
+Experiment 08 (D23), on the single-call C1 config, each one measured against execution:
+- the native `ollama:chat` provider, in a prompts × providers matrix (2 prompts × 2 models);
+- Python prompt functions that call the pipeline's own `build_messages`;
+- `options.transform` (SQL extraction) and `transformVars` (the judge's schema var);
+- promptfoo's response cache, so generation runs one model at a time and the full pass replays it;
+- `is-sql` in both dialects, a `javascript` assertion, and a local `llm-rubric` judge;
+- `--filter-providers` and `--grader echo` for the generation passes;
+- `PROMPTFOO_PASS_RATE_THRESHOLD` as a regression gate (`make gate`);
+- `promptfoo validate` on every config in CI.
+
+Still skipped, with reasons in D18: `--resume`, `--repeat`, test generators, and promptfoo's cache or native provider for the multi-call configs.

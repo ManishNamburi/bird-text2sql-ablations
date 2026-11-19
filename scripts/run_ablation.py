@@ -46,8 +46,10 @@ def promptfoo_env() -> dict:
     return env
 
 
-def promptfoo(args: list[str], extra_env: dict | None = None) -> None:
-    cmd = ["npx", "promptfoo", "eval", *args, "--no-cache", "--no-table", "--no-progress-bar"]
+def promptfoo(args: list[str], extra_env: dict | None = None, cache: bool = False) -> None:
+    """cache=False: promptfoo's response cache is off (D18: its key ignores our imported modules).
+    Experiment 08's native provider imports none of them, so it runs with cache=True (D23)."""
+    cmd = ["npx", "promptfoo", "eval", *args, *([] if cache else ["--no-cache"]), "--no-table", "--no-progress-bar"]
     print("$", " ".join(cmd), flush=True)
     env = {**promptfoo_env(), **(extra_env or {})}
     proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
@@ -65,7 +67,12 @@ def provenance(cfg: dict, raw: Path) -> str:
 
     import requests
 
-    models = sorted({(p.get("config") or {}).get("model", DEFAULT_MODEL) for p in cfg["providers"]})
+    def model(p: dict) -> str:  # promptfoo's native provider names the model in its id
+        if p["id"].startswith("ollama:chat:"):
+            return p["id"].removeprefix("ollama:chat:")
+        return (p.get("config") or {}).get("model", DEFAULT_MODEL)
+
+    models = sorted({model(p) for p in cfg["providers"]})
     tags = {m["name"]: m for m in requests.get(f"{OLLAMA_URL}/api/tags", timeout=10).json()["models"]}
     ollama = requests.get(f"{OLLAMA_URL}/api/version", timeout=10).json()["version"]
     meta = json.loads(raw.read_text()).get("metadata", {})

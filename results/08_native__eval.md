@@ -1,0 +1,13 @@
+# 08 promptfoo-native: C1 ± hints × qwen3.5:9b / qwen2.5-coder:7b, built-in assertions + LLM judge — split `eval`
+
+| prompt          | provider   |   n |   ex |   valid_sql |   is_sql_sqlite |   is_sql_mysql |   single_select |   judge |
+|:----------------|:-----------|----:|-----:|------------:|----------------:|---------------:|----------------:|--------:|
+| C1-native       | qwen3.5    | 150 | 30.7 |        93.3 |           100   |           96.7 |             100 |    30   |
+| C1-native+hints | qwen3.5    | 150 | 50   |        92   |            98.7 |           97.3 |             100 |    54.7 |
+| C1-native       | coder      | 150 | 37.3 |        92   |            98.7 |           88.7 |             100 |    37.3 |
+| C1-native+hints | coder      | 150 | 46.7 |        86   |            99.3 |           86.7 |             100 |    55.3 |
+
+
+**Provenance:** Ollama 0.40.16, promptfoo 0.125.1, Node v22.23.5, exported 2026-11-19T08:20Z.
+- `qwen2.5-coder:7b`: digest `dae161e27b0e` (7.6B, Q4_K_M, gguf), pulled 2026-11-16T08:59
+- `qwen3.5:9b`: digest `d63f830f28d5` (9.7B, nvfp4, mlx), pulled 2026-11-16T08:56

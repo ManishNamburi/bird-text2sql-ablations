@@ -135,6 +135,55 @@ Difference = Δstep(coder) − Δstep(qwen3.5), bootstrap CI over questions. Exp
 | → **C7** | +1.3 / +0.0 | -1.3 (-3.3 to +0.0) | +0.7 / +0.0 | -0.7 (-2.0 to +0.0) |
 | **Oracle vs C4** | +14.0 / +12.7 | -1.3 (-8.7 to +6.0) | +4.7 / +9.3 | +4.7 (-2.7 to +12.0) |
 
+## promptfoo-native evaluation (08, D23)
+
+C1 (BIRD descriptions, one call) on promptfoo's `ollama:chat` provider, as a prompts × providers matrix (C1 ± hints × qwen3.5:9b / qwen2.5-coder:7b), with promptfoo's built-in assertions scored next to EX. Source: `results/per_question_native.csv`. Analysis fixed before the run in `tasks/todo.md`.
+
+### 1. Does the native provider reproduce the custom provider?
+
+| Prompt | Model | n | Same SQL as the custom provider's cached row | Of the rest: same as a fresh custom call | EX native / custom |
+|---|---|---|---|---|---|
+| C1-native | qwen3.5 | 150 | 130 | 14 of 20 | 30.7 / 32.7 |
+| C1-native+hints | qwen3.5 | 150 | 127 | 12 of 23 | 50.0 / 51.3 |
+| C1-native | coder | 150 | 150 | 0 of 0 | 37.3 / 37.3 |
+| C1-native+hints | coder | 150 | 150 | 0 of 0 | 46.7 / 46.7 |
+
+*A differing row is re-run through `birdeval.llm.chat` without its cache. qwen3.5 runs on Ollama's MLX runner, which doesn't reproduce every reply between runs (D23); the coder's llama.cpp runner does.*
+
+### 2. Cheap checks against execution
+
+Rates in %, with Wilson 95% CIs and counts; pooled over the 4 cells. "Executes" = `valid_sql`.
+
+| Check | Pass rate | Rejects SQL that executes (false reject) | Accepts SQL that fails to execute (false accept) | Pass rate when EX is wrong |
+|---|---|---|---|---|
+| `is-sql`, `databaseType: Sqlite` | 99.2 (98–100), 595/600 | 0.0 (0–1), 0/545 | 90.9 (80–96), 50/55 | 98.6 (97–99), 348/353 |
+| `is-sql`, default (MySQL) | 92.3 (90–94), 554/600 | 6.4 (5–9), 35/545 | 80.0 (68–88), 44/55 | 92.1 (89–94), 325/353 |
+| `javascript`: one SELECT/WITH statement | 100.0 (99–100), 600/600 | 0.0 (0–1), 0/545 | 100.0 (93–100), 55/55 | 100.0 (99–100), 353/353 |
+
+On SQL that executes, the MySQL default rejects 35 queries the SQLite dialect accepts, and the reverse happens 0 times (exact McNemar p < 0.001). MySQL false-reject rate by model: coder: 10.5 (7–15), 28/267; qwen3.5: 2.5 (1–5), 7/278.
+
+### 3. The LLM judge (`llm-rubric`, reference-free) against EX
+
+The grader is qwen3.5:9b. It sees the question, BIRD's hint (in every cell, including the no-hints ones), the C1 schema and the SQL, never gold. κ CI: bootstrap over questions.
+
+| Prompt | Model | EX % | Judge pass % | Judge − EX (pp) |
+|---|---|---|---|---|
+| C1-native | qwen3.5 | 30.7 | 30.0 | -0.7 |
+| C1-native+hints | qwen3.5 | 50.0 | 54.7 | +4.7 |
+| C1-native | coder | 37.3 | 37.3 | +0.0 |
+| C1-native+hints | coder | 46.7 | 55.3 | +8.7 |
+
+The effect of hints, as each metric measures it, paired by question (bootstrap CI). Not a pre-registered test: it puts a number on the ranking question above.
+
+| Model | Hint effect by EX (pp) | Hint effect by the judge (pp) | Judge − EX (pp, 95% CI) |
+|---|---|---|---|
+| qwen3.5 | +19.3 | +24.7 | +5.3 (-2.7 to +14.0) |
+| coder | +9.3 | +18.0 | +8.7 (+0.7 to +17.3) |
+
+Over all 600 outputs: agreement with EX 72.2%, Cohen's κ = 0.43 (0.33 to 0.53). Sensitivity (passes when EX is right): 70.0 (64–75), 173/247. Specificity (fails when EX is wrong): 73.7 (69–78), 260/353. Grader errors (reply not readable as a verdict; counted as fails, as promptfoo does): 33.
+
+*Exploratory, self-preference:* (judge − EX) on qwen3.5's SQL minus the same on the coder's: -2.3 pp (-9.0 to +4.7). The judge is qwen3.5:9b.
+
 ## Every eval config (qwen3.5:9b)
 
 | Config | Experiment | EX no hints (95% CI) | EX with hints (95% CI) | Valid SQL % (no hints) | LLM calls/q | Prompt tok/q | s/q |

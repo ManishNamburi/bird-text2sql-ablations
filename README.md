@@ -12,7 +12,7 @@ This project rebuilds that pipeline and runs it on **`qwen3.5:9b` locally (MacBo
 - what it costs in tokens and seconds;
 - whether the gain is real or noise.
 
-The headline configs are then repeated on **`qwen2.5-coder:7b`** to see whether the gains depend on the model.
+The headline configs are then repeated on **`qwen2.5-coder:7b`** to see whether the gains depend on the model. A last experiment uses promptfoo's own features (native provider, built-in assertions, an LLM judge, a pass-rate gate) and measures each one against execution.
 
 Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs and paired tests.
 
@@ -49,6 +49,11 @@ Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs a
 8. **A 7B code model gives the same picture** ([results §07](docs/results.md#experiment-07--the-same-pipeline-on-qwen25-coder7b-d1-d22)). On `qwen2.5-coder:7b`, no config differs significantly from qwen3.5:9b (14 tests, all Holm p ≥ 0.57).
    - **The ladder's shape replicates:** descriptions add +8.7 pp without hints (raw p = 0.015), perfect linking adds +12.7 pp over C4 (p < 0.001), and voting and checks add ~0. Linking recall is again the lever.
    - **Hints help the coder less.** It is ahead by up to +4.7 pp without hints and behind by up to −8.7 pp with them. Pooled, hints gain it 7.9 pp less (95% CI −14.1 to −2.0). That comparison wasn't pre-registered, so it's a lead.
+9. **promptfoo's built-in checks are guards, and its LLM judge is a screen, not a metric** ([results §08](docs/results.md#experiment-08--promptfoos-own-features-measured-against-execution-d23)). C1 ± hints × both models, run on promptfoo's native `ollama:chat` provider and scored next to EX:
+   - **The native provider reproduces the custom one exactly where the runtime is deterministic:** 300 of 300 coder replies were identical.
+   - **qwen3.5:9b at temperature 0 and seed 42 is not deterministic on Ollama's MLX runner:** 43 of 300 replies differed from the ones cached two days earlier, and 17 differed even from a fresh call. This project's numbers are reproducible because every call is cached, not because of the seed.
+   - **`is-sql` defaults to MySQL** and rejected 6.4% of SQLite queries that execute, mostly BIRD's own `CAST(… AS REAL)` idiom. With `databaseType: Sqlite` it rejects none, and it also accepts 91% of the queries that fail to execute.
+   - **A reference-free `llm-rubric` judge (qwen3.5, never shown gold) agrees with EX at κ = 0.43.** It also overstated the coder's hint gain about twofold: +18.0 pp against +9.3 by EX (difference +8.7, CI +0.7 to +17.3). 5.5% of its verdicts were unreadable, mostly because it kept looking for the mistake the strict rubric told it to expect. No self-preference was detected.
 
 ### Cost against accuracy
 
@@ -64,9 +69,11 @@ The full design is in [docs/eval-design.md](docs/eval-design.md), and every trad
 - **Metric.** BIRD's official execution accuracy: set equality of result rows. It was validated line by line against `calculate_ex`, and gold vs gold scores 100%.
 - **Statistics.** Every config answers the same questions, so every comparison is **paired**: an exact McNemar test plus a paired bootstrap CI. When several tests are reported together they are Holm-corrected.
 - **One change at a time.** Each config differs from its parent by one flag of a single `PipelineConfig`, which promptfoo passes to one custom Python provider. A custom Python assertion scores EX.
-- **Determinism.** Temperature 0, seed 42, thinking off. Voting candidates sample with fixed seeds. Every LLM call is cached on disk, keyed by its exact request, so reruns are free and identical, and timings are the original call's. A hash-seed nondeterminism bug was found by that cache and fixed (D17).
+- **promptfoo-native (08).** The single-call C1 config also runs on promptfoo's `ollama:chat` provider as a prompts × providers matrix, with built-in assertions, a local `llm-rubric` judge and an exit-code gate (`PROMPTFOO_PASS_RATE_THRESHOLD`). Each feature is scored against EX rather than trusted (D23).
+- **CI.** GitHub Actions runs the tests that need no data, `promptfoo validate` on every config, and a check that `results/summary.md` rebuilds byte-identical from the committed CSVs. Model runs stay local.
+- **Determinism.** Temperature 0, seed 42, thinking off. Voting candidates sample with fixed seeds. Every LLM call is cached on disk, keyed by its exact request, so reruns are free and identical, and timings are the original call's. The cache matters: on Ollama's MLX runner, a fresh qwen3.5 call doesn't reproduce about 1 in 7 old replies despite the fixed seed (D23). A hash-seed nondeterminism bug was found by that cache and fixed (D17).
 - **No leakage.** Gold SQL never reaches a prompt except in the labelled oracle config. SQL-check detectors were calibrated on query-log gold SQL, never on eval.
-- **Provenance.** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX runner). Ollama 0.40.16, promptfoo 0.125.1, Node 22.23. All 10,234 qwen3.5 calls came from that one model build. The rerun's 4,209 calls came from `qwen2.5-coder:7b`, digest `dae161e27b0e` (7.6B, Q4_K_M, llama.cpp runner).
+- **Provenance.** `qwen3.5:9b`, digest `d63f830f28d5` (9.7B, nvfp4, MLX runner). Ollama 0.40.16, promptfoo 0.125.1, Node 22.23. All 10,234 qwen3.5 calls came from that one model build. The rerun's 4,209 calls came from `qwen2.5-coder:7b`, digest `dae161e27b0e` (7.6B, Q4_K_M, llama.cpp runner). Experiment 08's 600 generations and 600 judge verdicts used the same two builds, through promptfoo's cache.
 
 ## Reproduce
 
@@ -114,11 +121,23 @@ The qwen2.5-coder:7b rerun of the headline configs (about 5 h of model time):
 make run-07 SPLIT=eval
 ```
 
+Experiment 08, promptfoo's native provider, built-in assertions and LLM judge (about 4 h, most of it the judge):
+
+```bash
+make run-08 SPLIT=eval
+```
+
+The regression gate: exits non-zero if C1's dev EX on the coder drops below `GATE` % (default 20; baseline 26.7):
+
+```bash
+make gate
+```
+
 ```bash
 make summary
 ```
 
-`make summary` only needs the committed [results/per_question.csv](results/per_question.csv) (one row per config and question) and [results/per_question_test.csv](results/per_question_test.csv) (the test-split run). Every table, figure and test in this README can be recomputed from it without models or data.
+`make summary` only needs the committed [results/per_question.csv](results/per_question.csv) (one row per config and question), [results/per_question_test.csv](results/per_question_test.csv) (the test-split run) and [results/per_question_native.csv](results/per_question_native.csv) (experiment 08). Every table, figure and test in this README can be recomputed from it without models or data.
 
 `make view` opens promptfoo's web viewer on the local runs, showing each test's actual prompt, SQL, score and latency.
 
@@ -126,19 +145,20 @@ make summary
 
 ```
 src/birdeval/      the pipeline: schema rendering, profiling, linking, few-shot, voting, SQL checks, EX scoring
-promptfoo/         provider (one PipelineConfig per config), EX assertion, one YAML per experiment, test sets
+promptfoo/         provider (one PipelineConfig per config), EX assertion, prompt functions, one YAML per experiment, test sets
 scripts/           data prep and the two-pass runner (warm-up at -j 1, then a cache-only combined pass)
 analysis/          paired tests, per-question export, summary + figures, error analysis
 results/           per-run tables, per_question.csv, summary.md (raw promptfoo JSON stays local)
-docs/              results, eval design, decisions log (D1–D22), error analysis, paper summary, figures
-tests/             99 pytest tests: evaluator, schema renderer, linking, few-shot leakage, voting, checks, trims
+docs/              results, eval design, decisions log (D1–D23), error analysis, paper summary, figures
+tests/             103 pytest tests: evaluator, schema renderer, linking, few-shot leakage, voting, checks, trims, judge leakage
+.github/workflows/ CI: data-free tests, promptfoo validate, summary rebuild check
 tasks/             the plan and the lessons log kept during the project
 ```
 
 ## Limitations
 
 - **Sample size.** At n = 150, a single accuracy has a ±8 pp CI. Paired tests detect differences of roughly 5 pp and up. "Not significant" here means "smaller than that, if real".
-- **Two local models, one seed.** Run-to-run variance across seeds isn't measured. The `qwen2.5-coder:7b` rerun covers the seven headline configs on eval only, and it reuses qwen3.5's profile summaries. The 468-question test split has been run only for C3 vs T1, where it reversed the eval reading.
+- **Two local models, one seed.** Run-to-run variance across seeds isn't measured, and a fresh qwen3.5 rerun isn't bit-identical even with the same seed (D23): the reported numbers are one recorded run. The `qwen2.5-coder:7b` rerun covers the seven headline configs on eval only, and it reuses qwen3.5's profile summaries. The 468-question test split has been run only for C3 vs T1, where it reversed the eval reading.
 - **The summarizer is the same 9B model.** An audit found 20% of its profile summaries wrong (D14). A stronger summarizer, as in the paper, could widen the profiling gain.
 - **Few-shot pools differ from the paper.** The "query log" pool is BIRD dev questions on the same databases. BIRD has no real query logs.
 - **BIRD gold SQL has errors.** 3 of 20 sampled failures are gold-side. All configs share the same gold, so comparisons stay fair, but absolute numbers are bounded by it.
@@ -155,6 +175,8 @@ From [tasks/lessons.md](tasks/lessons.md), which I kept as the project ran:
 - **Size a non-inferiority margin against the CI you'll actually get.** I pre-registered "safe to trim = loss under 5 pp", but at n = 150 the paired CIs are ±5–7 pp wide, so a trim with no true effect fails about half the time or more. I reported the verdicts as registered: one trim hurts, and the other three are "inconclusive" rather than "safe".
 - **A point estimate of ~0 is not "no loss".** Short summaries scored +0.7 pp on the 150 eval questions, and I called them the next candidate. On 468 questions they cost −4.5 pp (Holm p = 0.025). An inconclusive result is a reason to run more questions, not a lean toward "safe".
 - **Compare models in more than one condition.** The coder was ahead of qwen3.5 without hints and behind it with hints in 6 of 7 configs. A comparison run in only one setting would have pointed to either model as the better one.
+- **A fixed seed isn't determinism; check the runtime.** I assumed temperature 0 and seed 42 made reruns identical. On Ollama's MLX runner they didn't, about 1 reply in 7. My numbers are reproducible only because every call was cached, and I found out only by comparing two providers.
+- **Measure a built-in check before trusting it.** `is-sql` silently defaults to MySQL and flagged 6.4% of valid SQLite. An LLM judge with κ = 0.43 looked fine per cell, but it doubled one A/B effect, the kind of decision an eval exists to make.
 - **Quote numbers from the source, never from memory.** I misquoted the paper's Table 2 once and caught it only by re-reading the PDF.
 
 ## License and data

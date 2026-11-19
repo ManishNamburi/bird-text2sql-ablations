@@ -282,6 +282,114 @@ def coder_section(df: pd.DataFrame) -> str:
         "includes 0 means unknown, not equal.\n\n" + step_by_model_table(w))
 
 
+NATIVE_CSV = ROOT / "results" / "per_question_native.csv"  # experiment 08 (D23)
+NATIVE_CELLS = [("C1-native", "qwen3.5", "C1-bird"), ("C1-native+hints", "qwen3.5", "C1-bird+hints"),
+                ("C1-native", "coder", "C1-bird@coder"), ("C1-native+hints", "coder", "C1-bird@coder+hints")]
+CHEAP_CHECKS = [("is_sql_sqlite", "`is-sql`, `databaseType: Sqlite`"), ("is_sql_mysql", "`is-sql`, default (MySQL)"),
+                ("single_select", "`javascript`: one SELECT/WITH statement")]
+
+
+def _pct_ci(k: int, n: int) -> str:
+    lo, hi = wilson(k, n)
+    return f"{100 * k / n:.1f} ({100 * lo:.0f}–{100 * hi:.0f}), {k}/{n}" if n else "—"
+
+
+def _kappa(a: np.ndarray, b: np.ndarray) -> float:
+    po = (a == b).mean()
+    pe = a.mean() * b.mean() + (1 - a.mean()) * (1 - b.mean())
+    return float((po - pe) / (1 - pe)) if pe < 1 else float("nan")
+
+
+def native_section(nat: pd.DataFrame, df: pd.DataFrame, n_boot: int = 10_000, seed: int = 0) -> str:
+    """Experiment 08: promptfoo's native provider and built-in assertions, measured against EX (D23)."""
+    w = wide(df)
+    rows = ["| Prompt | Model | n | Same SQL as the custom provider's cached row | Of the rest: same as a fresh "
+            "custom call | EX native / custom |", "|---|---|---|---|---|---|"]
+    for prompt, model, custom in NATIVE_CELLS:
+        g = nat[(nat["prompt"] == prompt) & (nat["model"] == model)]
+        d = g[g["same_as_cached"] == 0]
+        rows.append(f"| {prompt} | {model} | {len(g)} | {int(g['same_as_cached'].sum())} | "
+                    f"{int(d['same_as_fresh'].sum())} of {len(d)} | {100 * g['ex'].mean():.1f} / "
+                    f"{100 * w.loc[g['question_id'], custom].mean():.1f} |")
+    repro = "\n".join(rows) + "\n"
+
+    valid, ex = nat["valid_sql"].to_numpy(), nat["ex"].to_numpy()
+    rows = ["| Check | Pass rate | Rejects SQL that executes (false reject) | Accepts SQL that fails to execute "
+            "(false accept) | Pass rate when EX is wrong |", "|---|---|---|---|---|"]
+    for col, name in CHEAP_CHECKS:
+        c = nat[col].to_numpy()
+        rows.append(f"| {name} | {_pct_ci(int(c.sum()), len(c))} | {_pct_ci(int((c[valid == 1] == 0).sum()), int(valid.sum()))} "
+                    f"| {_pct_ci(int(c[valid == 0].sum()), int((valid == 0).sum()))} "
+                    f"| {_pct_ci(int(c[ex == 0].sum()), int((ex == 0).sum()))} |")
+    v = nat[nat["valid_sql"] == 1]
+    only_mysql = int(((v["is_sql_mysql"] == 0) & (v["is_sql_sqlite"] == 1)).sum())
+    only_sqlite = int(((v["is_sql_sqlite"] == 0) & (v["is_sql_mysql"] == 1)).sum())
+    p = mcnemar([[0, only_sqlite], [only_mysql, 0]], exact=True).pvalue
+    by_model = "; ".join(f"{m}: {_pct_ci(int((g['is_sql_mysql'] == 0).sum()), len(g))}"
+                         for m, g in v.groupby("model", sort=False))
+    checks = ("\n".join(rows) + f"\n\nOn SQL that executes, the MySQL default rejects {only_mysql} queries the SQLite "
+              f"dialect accepts, and the reverse happens {only_sqlite} times (exact McNemar {fmt_p(p, True)}). "
+              f"MySQL false-reject rate by model: {by_model}.\n")
+
+    j = nat["judge"].to_numpy()
+    rows = ["| Prompt | Model | EX % | Judge pass % | Judge − EX (pp) |", "|---|---|---|---|---|"]
+    for prompt, model, _ in NATIVE_CELLS:
+        g = nat[(nat["prompt"] == prompt) & (nat["model"] == model)]
+        rows.append(f"| {prompt} | {model} | {100 * g['ex'].mean():.1f} | {100 * g['judge'].mean():.1f} | "
+                    f"{100 * (g['judge'].mean() - g['ex'].mean()):+.1f} |")
+    # Bootstrap over questions: each resample keeps all of a question's rows together.
+    qids = nat["question_id"].unique()
+    by_q = {q: i for i, q in enumerate(qids)}
+    qi = nat["question_id"].map(by_q).to_numpy()
+    rng = np.random.default_rng(seed)
+    groups = [np.flatnonzero(qi == i) for i in range(len(qids))]
+    kappas, prefs = [], []
+    is_qwen = (nat["model"] == "qwen3.5").to_numpy()
+    gap = j - ex
+    for _ in range(n_boot):
+        rows_b = np.concatenate([groups[i] for i in rng.integers(0, len(qids), len(qids))])
+        kappas.append(_kappa(j[rows_b], ex[rows_b]))
+        b_q = is_qwen[rows_b]
+        prefs.append(gap[rows_b][b_q].mean() - gap[rows_b][~b_q].mean())
+    klo, khi = np.nanpercentile(kappas, [2.5, 97.5])
+    plo, phi = np.percentile(prefs, [2.5, 97.5])
+    pref = gap[is_qwen].mean() - gap[~is_qwen].mean()
+    # The cell comparison an eval would act on: the effect of hints, as EX and as the judge measure it.
+    wq = nat.pivot_table(index="question_id", columns=["model", "prompt"], values=["ex", "judge"])
+    hint_rows = ["| Model | Hint effect by EX (pp) | Hint effect by the judge (pp) | Judge − EX (pp, 95% CI) |",
+                 "|---|---|---|---|"]
+    for model in ("qwen3.5", "coder"):
+        d_ex, d_j = ((wq[m][model]["C1-native+hints"] - wq[m][model]["C1-native"]).to_numpy() for m in ("ex", "judge"))
+        boot = [(d_j[b] - d_ex[b]).mean() for b in (rng.integers(0, len(d_ex), len(d_ex)) for _ in range(n_boot))]
+        lo, hi = np.percentile(boot, [2.5, 97.5])
+        hint_rows.append(f"| {model} | {100 * d_ex.mean():+.1f} | {100 * d_j.mean():+.1f} | "
+                         f"{100 * (d_j - d_ex).mean():+.1f} ({100 * lo:+.1f} to {100 * hi:+.1f}) |")
+    judge = ("\n".join(rows) + "\n\nThe effect of hints, as each metric measures it, paired by question (bootstrap CI). "
+             "Not a pre-registered test: it puts a number on the ranking question above.\n\n" + "\n".join(hint_rows)
+             + f"\n\nOver all {len(nat)} outputs: agreement with EX "
+             f"{100 * (j == ex).mean():.1f}%, Cohen's κ = {_kappa(j, ex):.2f} ({klo:.2f} to {khi:.2f}). "
+             f"Sensitivity (passes when EX is right): {_pct_ci(int(j[ex == 1].sum()), int(ex.sum()))}. "
+             f"Specificity (fails when EX is wrong): {_pct_ci(int((j[ex == 0] == 0).sum()), int((ex == 0).sum()))}. "
+             f"Grader errors (reply not readable as a verdict; counted as fails, as promptfoo does): "
+             f"{int(nat['grader_error'].sum())}.\n\n"
+             f"*Exploratory, self-preference:* (judge − EX) on qwen3.5's SQL minus the same on the coder's: "
+             f"{100 * pref:+.1f} pp ({100 * plo:+.1f} to {100 * phi:+.1f}). The judge is qwen3.5:9b.\n")
+    return (
+        "\n## promptfoo-native evaluation (08, D23)\n\n"
+        "C1 (BIRD descriptions, one call) on promptfoo's `ollama:chat` provider, as a prompts × providers matrix "
+        "(C1 ± hints × qwen3.5:9b / qwen2.5-coder:7b), with promptfoo's built-in assertions scored next to EX. "
+        f"Source: `{NATIVE_CSV.relative_to(ROOT)}`. Analysis fixed before the run in `tasks/todo.md`.\n\n"
+        "### 1. Does the native provider reproduce the custom provider?\n\n" + repro +
+        "\n*A differing row is re-run through `birdeval.llm.chat` without its cache. qwen3.5 runs on Ollama's MLX "
+        "runner, which doesn't reproduce every reply between runs (D23); the coder's llama.cpp runner does.*\n\n"
+        "### 2. Cheap checks against execution\n\n"
+        "Rates in %, with Wilson 95% CIs and counts; pooled over the 4 cells. \"Executes\" = `valid_sql`.\n\n"
+        + checks +
+        "\n### 3. The LLM judge (`llm-rubric`, reference-free) against EX\n\n"
+        "The grader is qwen3.5:9b. It sees the question, BIRD's hint (in every cell, including the no-hints "
+        "ones), the C1 schema and the SQL, never gold. κ CI: bootstrap over questions.\n\n" + judge)
+
+
 def all_configs_table(stats: pd.DataFrame) -> str:
     base = [c for c in stats.index if not c.endswith("+hints")]
     head = ("| Config | Experiment | EX no hints (95% CI) | EX with hints (95% CI) | Valid SQL % (no hints) | "
@@ -430,6 +538,7 @@ def main() -> None:
         f"Source: `{TEST_CSV.relative_to(ROOT)}`.\n\n"
         + t1_test_table(pd.read_csv(TEST_CSV), set(df["question_id"])) +
         (coder_section(full) if len(df) < len(full) else "") +
+        (native_section(pd.read_csv(NATIVE_CSV), full) if NATIVE_CSV.exists() else "") +
         "\n## Every eval config (qwen3.5:9b)\n\n" + all_configs_table(stats) +
         "\n![ladder](../docs/figures/ladder.png)\n\n![pareto](../docs/figures/pareto.png)\n")
     print(f"-> {OUT.relative_to(ROOT)}, {FIG.relative_to(ROOT)}/ladder.*, pareto.*")

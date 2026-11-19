@@ -224,6 +224,96 @@ Question (D1): do the paper's gains depend on the model? Same pipeline, same pro
 - [x] Eval run (2026-11-18): 3,513 new calls, 291 min of model time (8.2 h wall clock: the Mac idle-slept overnight, timings unaffected), 0 errors in 2,100 rows, combined pass fully cached, coder digest in the provenance footer, largest prompt 19,505 tokens.
 - [x] Export, summary section, write-up: `per_question.csv` +2,100 rows with the 5,100 existing rows byte-identical; the existing summary sections and figures are unchanged; `summary.md` is byte-identical on rerun; 99 tests pass. Written up in `docs/results.md` §07, D22, README finding 8, limitations, Reproduce and provenance, and `eval-design.md`.
 
+#### Experiment 08 — promptfoo-native evaluation — spec (written 2026-11-18, before any 08 run)
+Question: what do promptfoo's built-in features give this project, and how far can each be trusted against the execution ground truth we already have? Experiments 01–07 used promptfoo as the harness: one custom Python provider and one custom Python assertion, with the statistics in our own Python. 08 uses the parts most promptfoo users rely on, and measures each against EX instead of just turning it on.
+
+Checked in the installed promptfoo 0.125.1 code before writing this:
+- the native `ollama:chat` provider passes `seed`, `temperature`, `num_ctx`, `num_predict` and `think` to Ollama, accepts chat-message prompts, reports token usage, and uses promptfoo's own response cache;
+- Python prompt functions (`file://….py:fn`) are supported;
+- `is-sql` defaults to **MySQL**. A valid SQLite query (`CAST(SUM(…) AS REAL) * 100 / COUNT(*)`) fails as MySQL and passes with `databaseType: Sqlite`;
+- `llm-rubric` falls back to **remote** grading when no grader provider is set. The grader is therefore pinned to local Ollama, so no question or SQL leaves the machine;
+- `PROMPTFOO_PASS_RATE_THRESHOLD` makes `promptfoo eval` exit non-zero below a pass rate.
+
+**Design: one config, `promptfoo/configs/08_native.yaml`**
+- **Prompts × providers matrix** (2 × 2), instead of one provider entry per config:
+  - **prompts:** C1 without hints, and C1 with hints. Both are Python prompt functions (`promptfoo/prompts/c1.py`) that call our own `build_messages`, so the messages are byte-identical to the custom provider's C1-bird and C1-bird+hints;
+  - **providers:** `ollama:chat:qwen3.5:9b` and `ollama:chat:qwen2.5-coder:7b`, with temperature 0, seed 42, `num_ctx` 24,576, `num_predict` 1,024 and `think: false`, exactly the options `llm.chat` sends.
+- **Output transform:** an `options.transform` extracts the fenced SQL from the raw reply, using the same rule as `pipeline.py`, so every assertion sees just the SQL.
+- **Assertions,** each with its own `metric`:
+  1. `ex`: the existing EX assertion (`promptfoo/asserts/ex_match.py`), unchanged. It is the ground truth, and the only one that uses gold.
+  2. `is_sql_sqlite`: `is-sql` with `databaseType: Sqlite`.
+  3. `is_sql_mysql`: `is-sql` with the default dialect. It's there to measure what the default costs a SQLite user.
+  4. `single_select`: a `javascript` assertion that passes when the output is one statement starting with `SELECT` or `WITH`.
+  5. `judge`: `llm-rubric`, reference-free. The grader is `ollama:chat:qwen3.5:9b` (temperature 0, seed 42, thinking off). It sees the question, the hint when the prompt has one, the schema text the generator saw (a `schema` var from `transformVars`), and the SQL. It never sees gold SQL or gold rows. The rubric asks whether the SQL correctly answers the question for this schema. The wording is iterated on the 30 dev questions only, then frozen before eval.
+- **Test-level pass** is "all assertions pass", but only per-metric rates are reported, through `derivedMetrics`. The overall pass rate is used only by the gate below.
+
+**Running it (lessons: one local model at a time)**
+- promptfoo runs every provider on a test before the next test. Two local models plus a qwen3.5 grader would swap models on every call, so the run has three passes:
+  1. qwen3.5 generation (`--filter-providers`), with the judge disabled through an env flag on the rubric's assertion;
+  2. the same for coder generation;
+  3. the full config: generation is all promptfoo-cache hits, and only the judge calls Ollama (one model loaded).
+- **promptfoo's cache is used on purpose here** (D18 skipped it for the custom provider): the native provider imports none of our modules, so the cache key covers the whole request. Rerunning pass 3 must make 0 Ollama calls.
+- **Gate:** `make gate` runs the C1 prompt on the 30 dev questions with `PROMPTFOO_PASS_RATE_THRESHOLD` set from the dev baseline, to show the exit-code regression gate. It's local only, because it needs a model.
+- **Splits:** dev 30 for rubric wording and the harness check; eval 150 for every number. Cells: 2 prompts × 2 models × 150 = 600 outputs, each with 5 assertions.
+
+**Pre-registered analysis (eval, 600 outputs).** No pipeline decision depends on these; they measure the tool.
+1. **Native vs custom provider (reproduction check):** in each of the 4 cells, compare SQL and EX against the matching existing rows (C1-bird, C1-bird+hints, and the two `@coder` ones). Expected: identical, since the messages, options and model digests are the same. Any difference gets investigated before anything else is reported, for example request options the native provider adds, or streaming vs non-streaming.
+2. **Cheap checks vs execution:** `is_sql_sqlite`, `is_sql_mysql` and `single_select` against `valid_sql` (does the SQL execute?) and against EX. For each: a confusion matrix, the false-reject rate (passes execution, fails the check) and the false-accept rate, all with Wilson CIs. Main comparison: MySQL vs SQLite false-reject rate, paired McNemar.
+3. **LLM judge vs EX:**
+   - agreement, Cohen's κ with a bootstrap CI over questions;
+   - sensitivity (judge passes | EX correct) and specificity (judge fails | EX wrong), with Wilson CIs;
+   - judge pass rate next to EX for each of the 4 cells, to see whether the judge ranks the cells the same way;
+   - grader failures (unparseable output), counted and never silently dropped.
+   - **Exploratory:** self-preference, i.e. (judge − EX) on qwen3.5's outputs vs on the coder's, paired by question with a bootstrap CI. The grader is qwen3.5, so this tests whether it favours its own SQL.
+   - Expectation stated up front: a reference-free judge can't check values or results, so κ well below 0.6 wouldn't be surprising.
+
+**Analysis code and outputs**
+- `analysis/export_native.py` → `results/per_question_native.csv`, one row per (model, prompt, question) with every metric, the judge score and the grader-error flag. No SQL and no judge reasons, as in the other committed CSVs. A section in `summary.md`.
+- Write-up: `docs/results.md` §08, decision D23, the README promptfoo section and what-I-learned bullet, and the `eval-design.md` feature list (D18 gets a pointer to D23).
+
+**Optional (your call): GitHub Actions CI**
+- A workflow on push that needs no model and no data:
+  - `uv sync` and `npm ci`;
+  - `promptfoo validate` on every config;
+  - pytest for the tests that don't need the MiniDev databases (the others are skipped in CI);
+  - `make summary` with a check that its outputs are byte-identical to the committed ones.
+- Model evals stay local. It's a private repo, so it uses your Actions minutes (a few minutes per push).
+
+**Cost:** about 600 generation calls (C1 is ~3 s per question → ~30 min) plus 600 judge calls (~30–40 min), and ~15 min of dev work. That's about 1.5 h of model time in total, run under `caffeinate`.
+
+**Verify:**
+- 0 provider errors, and 0 grader errors or they are reported;
+- pass 3 rerun makes 0 Ollama calls;
+- the reproduction check (analysis 1) is done before anything else;
+- no gold reaches the grader (a test asserts the rendered rubric has no gold SQL);
+- existing summary sections unchanged, and tests pass;
+- every prose number generated from the CSV.
+
+- [x] Spec approved (2026-11-18, with CI)
+- **Found while building (2026-11-18), before any 08 run:** Ollama doesn't reproduce every old reply. The same request (same messages and options, Ollama 0.40.16, same digests) gave a different reply today than the one cached on 2026-11-16. On the 30 dev C1 calls, fresh vs cached:
+  - qwen3.5:9b (MLX runner): 28/30 identical replies, 29/30 the same EX;
+  - qwen2.5-coder:7b (llama.cpp runner): 30/30 identical.
+
+  Today's replies are stable: the same after a warm prefix, a cold reload and another database. Streaming and non-streaming give the same reply. **Analysis 1 refinement:** every native row whose SQL differs from the cached custom row is re-checked against a *fresh* call from `birdeval.llm.chat`. Native = fresh means Ollama drift, not the provider; native ≠ fresh would be a provider difference. Drift is reported separately, as a reproducibility finding.
+- **Dev run (2026-11-18):**
+  - **Harness:** 0 errors in 120 rows, and the full pass's generations were 100% promptfoo-cache hits. Wall clock 9.2 h, because the lid was closed on battery and clamshell sleep overrides `caffeinate`. promptfoo times calls by wall clock, so 08's latencies include sleep and **08 reports tokens, not seconds** (our own timer, used in 01–07, stops during sleep).
+  - **Reproduction (dev):** the coder matched the cached custom rows 60/60, so the native provider sends the same request as ours. qwen3.5 matched 54/60, and only 2 of the 6 differing rows match a fresh custom call. Neither streaming nor the previous request's KV prefix explains the rest, and one question gave two different replies from two identical fresh calls. So qwen3.5's differences measure the MLX runner's nondeterminism, not the provider; the coder cells are the clean equivalence test.
+  - **Judge metric = llm-rubric's pass verdict.** Its score can be fractional (0.5 on 2 fails), and `namedScores` holds the score, so the export reads the verdict. 2 of 120 grader replies weren't readable JSON despite `format: json`; promptfoo counts them as fails, and they are reported separately.
+  - **Gate:** `make gate` runs `08_gate.yaml` (C1, coder, EX only), so pass rate = EX. The coder because its runner is deterministic, so a qwen3.5 gate could flip on an unchanged prompt. Baseline 26.7% (8/30), threshold 20%. Checked: exit 0 at 20%, and a non-zero exit with promptfoo's "below the threshold" message at 30%.
+- [x] Dev: rubric wording frozen (2026-11-18). Two wordings were tried on dev, both on the same cached generations:
+  - **v1** (the spec's): κ 0.14, passes 36/41 EX-correct and fails 24/79 EX-wrong, 2 grader errors. Too lenient.
+  - **v2** (strict, a 5-point checklist): κ 0.25, or 0.31 excluding errors; 22/41 and 57/79; 12 grader errors. **Adopted.**
+  - v2's errors were all the grader hitting `num_predict` 1,024: it deliberates inside the JSON `reason` and never closes it (read from promptfoo's cache). This was a harness limit, so it was raised to 4,096 for the grader only. On the 6 affected dev questions (24 rows), errors went from 12 to 3. Frozen; no further wording changes.
+- **Gate:** see above. `make gate` is checked.
+- [x] Eval run (2026-11-19): three passes, 0 errors, full pass 100% promptfoo-cache hits. Wall clock 4.1 h (judge 3.3 h at ~20 s a verdict, against the spec's estimate of 30–40 min: the strict rubric makes the grader deliberate), no sleep events. Results:
+  - **Reproduction:** coder 300/300 identical SQL; qwen3.5 257/300, and of the 43 that differ, 26 match a fresh call and 17 differ from both (MLX nondeterminism).
+  - **Cheap checks:** `is-sql` MySQL false-rejects 35/545 executable queries (32 on `CAST … AS REAL`), SQLite 0/545 (McNemar p < 0.001); SQLite `is-sql` accepts 50/55 non-executing queries; single SELECT passes 600/600.
+  - **Judge:** κ 0.43 (0.33–0.53), sensitivity 70.0%, specificity 73.7%, 33 grader errors (29 at the 4,096-token cap), self-preference −2.3 pp (−9.0 to +4.7).
+- [x] Export, summary section, write-up. `per_question_native.csv` 600 rows; the existing summary sections are unchanged and `summary.md` is byte-identical on rerun; 103 tests pass; a data-free copy gives 10 passed / 47 skipped and an identical `summary.md` (what CI runs). Written up in `docs/results.md` §08, D23 (D18 points to it), README finding 9, determinism, Reproduce, layout, limitations and lessons, and `eval-design.md`.
+  - **Deviation from the spec:** the judge saw BIRD's hint in every cell, not only "when the prompt has one" (the rubric template always renders `{{evidence}}`). Declared in D23.
+  - **Added after the run, labelled as not pre-registered:** the hint effect measured by EX vs by the judge, paired by question. It quantifies the spec's "does the judge rank the cells the same way": the coder's hint gain is +9.3 pp by EX and +18.0 by the judge (difference +8.7, CI +0.7 to +17.3).
+  - **Fixed along the way:** the provenance line omitted the coder (native providers name the model in `id`, not `config.model`), and the results table averaged the judge's fractional scores instead of its verdicts. Both `08_native__*.md` were regenerated from the raw JSON without new calls. The dev raw file had been scored with rubric v1, so dev was re-run with the frozen config (generation cached, judge live): 0 errors, repro 114/120 as before, judge κ 0.25, passes 23/41 EX-correct and fails 55/79 EX-wrong, 8 grader errors. The grader is qwen3.5 on MLX, so these differ slightly from the rubric trial's 22/41 and 57/79.
+
 #### C7 spec — SQL sanity checks + correction (paper §4, written 2026-11-17)
 Paper §4: each candidate is checked for constructions "likely to indicate an incorrect response". If one is found, "the LLM is asked for a correction with up to three retries"; then the vote. The four checks it names:
 - (a) **NULL ordering:** "ensure a NOT NULL predicate on f" if the output is ordered ascending on f.

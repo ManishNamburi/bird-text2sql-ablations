@@ -8,7 +8,7 @@ export PROMPTFOO_DISABLE_TELEMETRY := 1
 
 SPLIT ?= dev
 
-.PHONY: setup data test splits metadata fewshot run-01 run-02 run-03 run-04 run-05 run-06 run-07 csv summary view
+.PHONY: setup data test splits metadata fewshot run-01 run-02 run-03 run-04 run-05 run-06 run-07 run-08 gate csv summary view
 
 setup:            ## install Python + Node deps and pull models
 	uv sync
@@ -63,8 +63,16 @@ run-06:           ## prompt trimming T1-T4 on C3; make run-06 SPLIT=eval
 run-07:           ## headline configs on qwen2.5-coder:7b; make run-07 SPLIT=eval
 	uv run python scripts/run_ablation.py promptfoo/configs/07_coder.yaml --split $(SPLIT)
 
+run-08:           ## promptfoo-native C1 matrix + built-in assertions + LLM judge; make run-08 SPLIT=eval
+	uv run python scripts/run_native.py --split $(SPLIT)
+
+GATE ?= 20
+gate:             ## regression gate: exits non-zero if C1's dev EX (coder) drops below GATE % (baseline 26.7)
+	PROMPTFOO_PASS_RATE_THRESHOLD=$(GATE) npx promptfoo eval -c promptfoo/configs/08_gate.yaml -t promptfoo/tests/dev.yaml -j 1 --no-write --no-table --no-progress-bar
+
 csv:              ## merge the local eval runs into results/per_question.csv (needs results/raw/)
 	uv run python analysis/export_csv.py
+	uv run python analysis/export_native.py
 
 summary:          ## results/summary.md + docs/figures/ from the committed per_question.csv
 	uv run python analysis/summary.py

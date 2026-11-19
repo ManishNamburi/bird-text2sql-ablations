@@ -1,0 +1,81 @@
+# Experiment 08 — promptfoo-native evaluation (D23).
+# C1 (BIRD descriptions, full schema, one call) on promptfoo's own `ollama:chat` provider, as a
+# prompts × providers matrix, scored by promptfoo's built-in assertions next to our EX assertion.
+# Every built-in check is measured against execution (EX, valid SQL); see docs/results.md §08.
+# Run with:  uv run python scripts/run_native.py --split dev
+#   The runner generates one model at a time with `--grader echo` (no judge calls), then runs this
+#   whole config once: generation comes from promptfoo's cache and only the judge calls Ollama.
+description: "08 promptfoo-native: C1 ± hints × qwen3.5:9b / qwen2.5-coder:7b, built-in assertions + LLM judge"
+
+prompts:
+  - id: file://../prompts/c1.py:no_hints
+    label: C1-native
+  - id: file://../prompts/c1.py:with_hints
+    label: C1-native+hints
+
+# Exactly the options birdeval.llm.chat sends (temperature 0, seed 42, num_ctx, num_predict, no thinking).
+providers:
+  - id: ollama:chat:qwen3.5:9b
+    label: qwen3.5
+    config: { temperature: 0, seed: 42, num_ctx: 24576, num_predict: 1024, think: false }
+  - id: ollama:chat:qwen2.5-coder:7b
+    label: coder
+    config: { temperature: 0, seed: 42, num_ctx: 24576, num_predict: 1024, think: false }
+
+derivedMetrics:
+  - name: EX_pct
+    value: 100 * ex / __count
+  - name: valid_sql_pct
+    value: 100 * valid_sql / __count
+  - name: is_sql_sqlite_pct
+    value: 100 * is_sql_sqlite / __count
+  - name: is_sql_mysql_pct
+    value: 100 * is_sql_mysql / __count
+  - name: single_select_pct
+    value: 100 * single_select / __count
+  - name: judge_pct
+    value: 100 * judge / __count
+
+defaultTest:
+  options:
+    # Every assertion sees the SQL only, extracted by the pipeline's own rule.
+    transform: file://../asserts/native.py:extract_sql
+    # Adds `schema` (the C1 schema text) for the judge's rubric. No gold.
+    transformVars: file://../asserts/native.py:add_schema
+    # The judge. Pinned to local Ollama: without a provider, llm-rubric falls back to remote grading.
+    provider:
+      id: ollama:chat:qwen3.5:9b
+      # num_predict 4096: with 1024, 12 of 120 dev verdicts were cut off mid-JSON (the grader reasons inside "reason").
+      config: { temperature: 0, seed: 42, num_ctx: 24576, num_predict: 4096, think: false, format: json }
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex
+    - type: is-sql
+      value: { databaseType: Sqlite }
+      metric: is_sql_sqlite
+    - type: is-sql # promptfoo's default dialect (MySQL), measured on SQLite queries
+      metric: is_sql_mysql
+    - type: javascript
+      metric: single_select
+      value: |
+        const s = output.trim().replace(/;\s*$/, '');
+        return /^(select|with)\b/i.test(s) && !s.includes(';');
+    - type: llm-rubric
+      metric: judge
+      value: |
+        You are grading a SQLite query written to answer the question below. Be strict: queries written
+        for questions like this one usually contain at least one mistake.
+        Check each point against the schema and the hint:
+        1. Every table, column and literal it uses exists, and each literal matches the values and formats the schema documents (case, codes vs labels).
+        2. The joins are right and don't multiply rows that should be counted once.
+        3. Every condition in the question and the hint is applied, and nothing extra is added.
+        4. Aggregations, calculations and percentages follow the question and the hint exactly.
+        5. It returns exactly the columns the question asks for, no more and no fewer.
+        Pass it only if all five hold. If any point fails, or you can't verify it from the schema, fail it.
+
+        Database schema:
+        {{schema}}
+
+        Question: {{question}}
+        Hint: {{evidence}}

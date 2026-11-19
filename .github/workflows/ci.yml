@@ -1,0 +1,47 @@
+# Checks that need no model and no data (D23). The model evals themselves run locally.
+#  - unit tests: tests that read the MiniDev download skip (tests/conftest.py);
+#  - every promptfoo config passes `promptfoo validate`;
+#  - results/summary.md regenerates byte-identical from the committed per-question CSVs,
+#    so every published number is reproducible from what's in the repo.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PROMPTFOO_DISABLE_TELEMETRY: "1"
+      PROMPTFOO_DISABLE_UPDATE: "1"
+      NPM_CONFIG_UPDATE_NOTIFIER: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: uv sync --frozen
+      - run: npm ci
+
+      - name: Unit tests (data-dependent tests skip)
+        run: uv run pytest -q -rs
+
+      - name: Validate every promptfoo config
+        run: |
+          for c in promptfoo/configs/*.yaml; do
+            echo "$c"
+            npx promptfoo validate -c "$c"
+          done
+
+      - name: summary.md regenerates from the committed CSVs
+        # Figures are re-rendered too, but fonts differ across OSes, so only the text is compared.
+        run: |
+          uv run python analysis/summary.py
+          git diff --exit-code -- results/summary.md

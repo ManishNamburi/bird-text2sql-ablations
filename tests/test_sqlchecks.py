@@ -4,6 +4,7 @@ import pytest
 
 from birdeval.sqlchecks import check_sql, correction_messages, has_nulls
 
+pytestmark = pytest.mark.needs_data
 DB = "california_schools"  # schools.ClosedDate has NULLs; schools.CDSCode has none
 
 

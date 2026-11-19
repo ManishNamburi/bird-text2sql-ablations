@@ -39,6 +39,7 @@ def test_mask_literals(text, expected):
     assert mask_literals(text) == expected
 
 
+@pytest.mark.needs_data
 def test_masking_keeps_everything_but_values():
     s = load_summaries("california_schools")[("satscores", "rtype")]
     m = mask_literals(s)
@@ -53,6 +54,7 @@ def test_each_trim_is_one_field_away_from_the_base():
         assert len(diff) == 1, (name, diff)
 
 
+@pytest.mark.needs_data
 def test_each_trim_changes_only_its_section_and_shortens_the_prompt():
     q = _question()
     base = pl.build_messages(q, BASE)
@@ -75,12 +77,14 @@ def test_unknown_system_fails_loudly():
         pl.PipelineConfig(system="short")
 
 
+@pytest.mark.needs_data
 def test_minimal_system_reaches_corrections():
     msgs = pl.build_messages(_question(), TRIMS["T4"])
     out = correction_messages(msgs, "SELECT 1", [Issue("concat", "x", "msg")])
     assert out[0]["content"] == prompts.SYSTEM_MINIMAL
 
 
+@pytest.mark.needs_data
 def test_linking_prompts_ignore_the_system_trim(monkeypatch):
     log = []
 

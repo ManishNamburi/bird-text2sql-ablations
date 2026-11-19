@@ -3,6 +3,8 @@
 import json
 import re
 
+import pytest
+
 import birdeval.pipeline as pl
 from birdeval.llm import LLMResult
 from birdeval.sqlexec import DATA_ROOT
@@ -19,6 +21,7 @@ def test_pick_majority_ties_and_failures():
     assert pick([None, None, None]) == (0, [0, 0, 0])  # nothing executes -> candidate 0
 
 
+@pytest.mark.needs_data
 def test_vote_executes_and_ignores_invalid_sql():
     v = vote("california_schools", ["SELECT 1", "SELECT 2", "SELECT 2"])
     assert (v.winner, v.groups) == (1, [1, 2, 2])
@@ -41,6 +44,7 @@ def _fake_chat(log, sql_by_seed):
     return chat
 
 
+@pytest.mark.needs_data
 def test_pipeline_candidates_and_vote(monkeypatch):
     log = []
     monkeypatch.setattr(pl, "chat", _fake_chat(log, {42: "SELECT 1", 43: "SELECT 2", 44: "SELECT 2"}))
@@ -66,6 +70,7 @@ def test_pipeline_candidates_and_vote(monkeypatch):
     assert len(res.calls) == 3
 
 
+@pytest.mark.needs_data
 def test_single_candidate_path_is_unchanged(monkeypatch):
     log = []
     monkeypatch.setattr(pl, "chat", _fake_chat(log, {42: "SELECT 1"}))

@@ -179,6 +179,7 @@ A review of promptfoo 0.125.1 against this setup (2026-11-16). Each claim below 
   - *Python test generators:* frozen, committed YAML fits "freeze the eval set" better.
   - *`extensions` hooks:* the `afterAll` return value isn't saved, so `analysis/analyze.py` stays separate.
   - *OTLP tracing:* per-call timelines for linking would be nice in the viewer, but they need OpenTelemetry packages. Possible for Phase 5.
+- **Revisited in D23** (experiment 08): the native provider, promptfoo's cache, built-in assertions and an LLM judge, for the single-call C1 config.
 
 ## D19 — Voting (C6): parent config, diversity, and the vote rule
 Paper §4: three candidates, diversified by "changing the LLM randomization seed" and by "randomizing the order of the (schema linking-reduced) schema fields". Each is executed, results become sets, two agreeing candidates win, else one is picked at random. Implementation: `src/birdeval/voting.py`, `PipelineConfig.votes` / `vote_temperature`, config `04_voting.yaml` (2026-11-17).
@@ -234,3 +235,25 @@ Answers D1's open question: do the gains depend on the model? Config `promptfoo/
   3. Δstep(coder) − Δstep(qwen3.5) as exploratory, with the expected CI width (±9–11 pp) stated up front.
 - **Outcome (eval, 2026-11-18):** no model gap survives Holm (all adjusted p ≥ 0.57). The ladder's shape replicates: C0 → C1 +8.7 pp without hints (raw p = 0.015), oracle vs C4 +12.7 / +9.3 (p < 0.001), voting and checks ~0. Linking adds +0.7 / −1.3 against qwen3.5's +4.7 / +3.3; the difference is unknown (CIs ±8–9 pp). **Post hoc:** hints help the coder 7.9 pp less, pooled over the configs (−14.1 to −2.0). It's not pre-registered, so it's a lead; it would need its own test-split run. Details in `docs/results.md` §07.
 - **Run note:** the Mac idle-slept during the eval run, which stretched the wall clock to 8.2 h for 291 min of model time. Results and recorded timings are unaffected, because `time.perf_counter` stops during sleep. Long runs now start under `caffeinate` (`tasks/lessons.md`).
+
+## D23 — promptfoo-native evaluation: what's used, and how each feature is checked
+Experiment 08 revisits D18's "skipped" list for single-call configs. Config `promptfoo/configs/08_native.yaml`, runner `scripts/run_native.py`, `make run-08`, gate `promptfoo/configs/08_gate.yaml` / `make gate` (2026-11-18/19).
+- **Native provider:** `ollama:chat`, with exactly the options `birdeval.llm.chat` sends (temperature 0, seed 42, `num_ctx` 24,576, `num_predict` 1,024, thinking off). It's fed by Python prompt functions (`promptfoo/prompts/c1.py`) that call the pipeline's own `build_messages`, so the prompt text can't drift from C1's (tested).
+- **promptfoo's cache, used on purpose.** D18 skipped it because its key misses the custom provider's imported modules. The native provider imports none of our code, so its key covers the whole request. The runner generates one model at a time with `--grader echo` (no judge calls), then runs the full config, where generation must be 100% cache hits (the runner fails otherwise) and only the judge calls Ollama. That keeps one model loaded at a time on 18 GB.
+- **Assertions,** each a named metric: EX (unchanged, the only one that sees gold), `is-sql` in both dialects, a `javascript` single-statement check, and `llm-rubric`. Every assertion sees the SQL through an `options.transform` that applies the pipeline's own extraction rule.
+- **Judge:**
+  - pinned to `ollama:chat:qwen3.5:9b`, because without a provider `llm-rubric` grades remotely and questions would leave the machine;
+  - `format: json` and `num_predict` 4,096. At 1,024, the strict rubric's deliberation truncated 12 of 120 dev verdicts;
+  - its metric is the pass verdict, not the score, because `llm-rubric` scores can be fractional;
+  - grader errors are counted as fails, as promptfoo does, and reported separately.
+- **Rubric wording iterated on dev only:** a lenient v1 (κ 0.14 vs EX on dev) and a strict 5-point checklist v2 (κ 0.25). v2 was frozen before eval.
+- **Deviation:** the spec said the judge sees the hint "when the prompt has one". The rubric template renders `{{evidence}}` in every cell, so it saw the hint in the no-hints cells too. Grading every cell against the same task statement is defensible, but it wasn't the plan, and it may be why the judge overstates the hint effect (results §08).
+- **Gate on the coder, not qwen3.5:** its runner reproduces replies, so the exit code moves only when the prompt does.
+- **Latency isn't compared.** promptfoo times calls by wall clock, which includes sleep (the dev run spent 9 h with the lid closed), so 08 reports tokens. The eval run had no sleep events, and its wall clock is given only as a run note.
+- **Determinism finding:** at temperature 0 and seed 42, qwen3.5:9b on Ollama's MLX runner didn't reproduce 43 of 300 cached replies; 17 differed even from a fresh call. The coder (llama.cpp) reproduced 300 of 300. So 01–07's "identical reruns" holds through the disk cache, not through the seed (D8).
+- **Outcome (eval, 2026-11-19):**
+  - the native provider reproduced the custom one exactly on the coder;
+  - the MySQL default of `is-sql` falsely rejected 6.4% of executable SQLite (32 of 35 on `CAST(… AS REAL)`);
+  - the judge's κ against EX was 0.43, it overstated the coder's hint gain about twofold (+18.0 vs +9.3 pp), and 33 of its 600 verdicts were unreadable;
+  - no self-preference was detected.
+- *Tradeoff kept from D18:* multi-call configs (linking, voting, checks) stay on the custom provider. Their logic is Python, not a single request.

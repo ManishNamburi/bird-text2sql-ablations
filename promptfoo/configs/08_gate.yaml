@@ -1,0 +1,24 @@
+# Experiment 08 — a pass-rate regression gate (D23). `make gate` runs it with
+# PROMPTFOO_PASS_RATE_THRESHOLD, so promptfoo exits non-zero when C1's EX on the 30 dev questions
+# falls below the threshold. EX is the only assertion here, so pass rate = EX.
+# qwen2.5-coder:7b, because its llama.cpp runner reproduced every reply; qwen3.5's MLX runner
+# flips about 1 in 10 replies between runs (docs/results.md §08), which would make a gate flaky.
+# promptfoo's cache makes an unchanged prompt free; a changed prompt or pipeline gets fresh calls.
+description: "08 gate: C1 on qwen2.5-coder:7b, dev, EX only"
+
+prompts:
+  - id: file://../prompts/c1.py:no_hints
+    label: C1-native
+
+providers:
+  - id: ollama:chat:qwen2.5-coder:7b
+    label: coder
+    config: { temperature: 0, seed: 42, num_ctx: 24576, num_predict: 1024, think: false }
+
+defaultTest:
+  options:
+    transform: file://../asserts/native.py:extract_sql
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex
