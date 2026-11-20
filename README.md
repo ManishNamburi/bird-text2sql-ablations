@@ -30,7 +30,7 @@ Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs a
 | C7 | + SQL sanity checks | **41.3** (34–49) | **59.3** (51–67) | 20,523 | 50.9 | not isolated |
 | *Oracle* | *gold SQL's columns only (upper bound)* | *53.3* (45–61) | *61.3* (53–69) | *748* | *4.0* | *69.0 / 77.4* |
 
-*EX = BIRD execution accuracy (%), with Wilson 95% CIs. "With hints" adds BIRD's per-question evidence, which real users don't write, so the no-hints column is the realistic one. Deltas, paired CIs, a Holm-adjusted McNemar matrix, the trimming table, all 34 qwen3.5 configs and the qwen2.5-coder rerun are in [results/summary.md](results/summary.md). The full write-up of each experiment is in [docs/results.md](docs/results.md).*
+*EX = BIRD execution accuracy (%), with Wilson 95% CIs. "With hints" adds BIRD's per-question evidence, which real users don't write, so the no-hints column is the realistic one. Deltas, paired CIs, a Holm-adjusted McNemar matrix, the trimming table, all 34 qwen3.5 configs, the qwen2.5-coder rerun and the promptfoo-native experiment are in [results/summary.md](results/summary.md). The full write-up of each experiment is in [docs/results.md](docs/results.md).*
 
 ### What I found
 
@@ -60,6 +60,31 @@ Every number is execution accuracy on 150 BIRD MiniDev questions, with 95% CIs a
 ![Cost vs accuracy, Pareto frontier](docs/figures/pareto.png)
 
 Without hints, the cheap end of the frontier is C0 → C1 → T1 → T4 (3–6 s per question). T1 and T4 are C3 with one section trimmed, and on eval they sit above C3 by differences well inside the noise. T1's place there doesn't survive the test split, where it is 4.5 pp below C3. Linking is the step change in cost: 7.6× C3's time, for +4.7 pp (p = 0.21). **For a deployment on this model I'd pick C1:** BIRD descriptions on the full schema, 1,910 tokens, 3.1 s, 32.7%. Rather than more calls, I'd spend effort on linking recall. Shortening the profile summaries (T1) looked like a cheap middle option on eval, but it costs 4.5 pp on the larger test split, so if profiles are used they stay long.
+
+### promptfoo's own features, checked against execution (experiment 08)
+
+C1 (BIRD descriptions, one call) as a promptfoo prompts × providers matrix on the native `ollama:chat` provider: 2 prompts × 2 models × 150 eval questions = 600 outputs. Every built-in check is scored against EX and against whether the SQL executes.
+
+| Cell | EX | Executes | LLM judge passes | Judge − EX |
+|---|---|---|---|---|
+| C1 · qwen3.5:9b | 30.7 | 93.3 | 30.0 | −0.7 |
+| C1 + hints · qwen3.5:9b | 50.0 | 92.0 | 54.7 | +4.7 |
+| C1 · qwen2.5-coder:7b | 37.3 | 92.0 | 37.3 | 0.0 |
+| C1 + hints · qwen2.5-coder:7b | 46.7 | 86.0 | 55.3 | +8.7 |
+
+*% of 150 questions per cell. The judge is `llm-rubric` on local qwen3.5:9b. It sees the question, the hint, the schema and the SQL, never gold.*
+
+| Feature | Measured against execution | Verdict |
+|---|---|---|
+| Native `ollama:chat` provider, Python prompt functions | Same SQL as the custom provider: coder 300/300; qwen3.5 257/300, a property of its MLX runner, not of the provider | A drop-in for single-call configs |
+| promptfoo's response cache | Generation runs one model at a time; the full pass replays it 100% from cache, so only the judge calls Ollama | What made 2 models + a judge fit in 18 GB |
+| `is-sql`, default dialect (MySQL) | Rejects 35 of 545 queries that execute (6.4%); 32 of them use `CAST(… AS REAL)` | Always set `databaseType` |
+| `is-sql`, `databaseType: Sqlite` | 0 false rejects, but passes 50 of the 55 queries that fail to execute and 98.6% of wrong answers | A syntax guard, not a quality signal |
+| `javascript`: one SELECT/WITH statement | Passed 600/600 | Free insurance; never fired |
+| `llm-rubric` judge (reference-free) | κ = 0.43 (0.33–0.53); passes 70.0% of correct answers, fails 73.7% of wrong ones; 33 unreadable verdicts | A screen, not a metric: it doubled the coder's hint gain (+18.0 pp vs +9.3 by EX; difference +8.7, CI +0.7 to +17.3) |
+| `PROMPTFOO_PASS_RATE_THRESHOLD` | `make gate`: exits 0 at 20%, non-zero at 30% (C1 on the coder, dev baseline 26.7%) | A working regression gate, on the deterministic runner |
+
+The judge cost more than what it graded: about 2,300 prompt and 420 completion tokens per verdict, against about 1,900 and 62 per generated query, and 3.3 h of judging against 41 min of generation. No self-preference was detected (−2.3 pp, CI −9.0 to +4.7). Full analysis in [results §08](docs/results.md#experiment-08--promptfoos-own-features-measured-against-execution-d23); tradeoffs in D23.
 
 ## How the evaluation is built
 
