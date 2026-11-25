@@ -23,7 +23,7 @@ TRIMS = {
 
 
 def _question(db="california_schools"):
-    qs = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())
+    qs = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))
     return next(q for q in qs if q["db_id"] == db)
 
 

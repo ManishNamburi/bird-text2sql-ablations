@@ -13,7 +13,7 @@ from birdeval.sqlexec import DATA_ROOT
 
 pytestmark = pytest.mark.skipif(not (fs.TRAIN_FILE.exists() and fs.DEV_FILE.exists()),
                                 reason="few-shot source data not downloaded")
-MINIDEV = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())
+MINIDEV = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))
 
 
 def test_pools_do_not_leak_eval_questions():

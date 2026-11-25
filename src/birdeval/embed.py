@@ -38,7 +38,7 @@ def _path(db_id: str):
 
 
 def build(db_id: str) -> int:
-    summaries = json.loads((DERIVED / "summaries" / f"{db_id}.json").read_text())
+    summaries = json.loads((DERIVED / "summaries" / f"{db_id}.json").read_text(encoding="utf-8"))
     keys = list(summaries)
     vecs = np.concatenate([embed([f"{k}: {summaries[k]['long']}" for k in keys[i : i + 64]], "document")
                            for i in range(0, len(keys), 64)])

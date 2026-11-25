@@ -20,7 +20,9 @@ from pathlib import Path
 
 import requests
 
-OLLAMA_URL = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/")
+# 127.0.0.1, not localhost: on Windows "localhost" tries ::1 first, Ollama listens on IPv4 only,
+# and the refused IPv6 connect costs ~2 s per call (measured on the 5070 desktop, 09).
+OLLAMA_URL = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
 if not OLLAMA_URL.startswith("http"):
     OLLAMA_URL = f"http://{OLLAMA_URL}"
 
@@ -49,6 +51,14 @@ class LLMResult:
     gen_ms: float  # decode time
     total_ms: float  # wall clock of the original (uncached) call
     cached: bool = False
+    aborted: bool = False  # Ollama stopped the generation (token repeat limit); text is ABORTED_REPLY
+
+
+# Ollama aborts a generation that keeps repeating a token, with HTTP 500 and no reply (seen in 09:
+# qwen3.5 looping on one question, deterministically). A runtime without that guard would decode
+# until num_predict and return unusable SQL, so the abort is recorded as a reply that fails to
+# execute: invalid SQL, EX 0, no linked fields, no vote. Not empty: SQLite runs "" as a valid query.
+ABORTED_REPLY = "```sql\nABORTED: Ollama stopped the generation (token repeat limit reached)\n```"
 
 
 def _cache_key(payload: dict) -> str:
@@ -88,7 +98,7 @@ def chat(
     key = _cache_key(payload)
     path = CACHE_DIR / key[:2] / f"{key}.json"
     if use_cache and path.exists():
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         return LLMResult(**{**data, "cached": True})
     if os.environ.get("BIRDEVAL_CACHE_ONLY") == "1":
         # Set by run_ablation.py for its combined pass (-j 4): a miss there would send
@@ -97,19 +107,22 @@ def chat(
 
     t0 = time.perf_counter()
     resp = requests.post(f"{OLLAMA_URL}/api/chat", json=payload, timeout=timeout_s)
-    resp.raise_for_status()
-    body = resp.json()
     wall_ms = (time.perf_counter() - t0) * 1000
-
-    result = LLMResult(
-        text=body["message"]["content"],
-        model=model,
-        prompt_tokens=body.get("prompt_eval_count", 0),
-        completion_tokens=body.get("eval_count", 0),
-        prompt_ms=body.get("prompt_eval_duration", 0) / 1e6,
-        gen_ms=body.get("eval_duration", 0) / 1e6,
-        total_ms=wall_ms,
-    )
+    if resp.status_code == 500 and "token repeat limit reached" in resp.text:
+        result = LLMResult(text=ABORTED_REPLY, model=model, prompt_tokens=0, completion_tokens=0,
+                           prompt_ms=0.0, gen_ms=0.0, total_ms=wall_ms, aborted=True)
+    else:
+        resp.raise_for_status()
+        body = resp.json()
+        result = LLMResult(
+            text=body["message"]["content"],
+            model=model,
+            prompt_tokens=body.get("prompt_eval_count", 0),
+            completion_tokens=body.get("eval_count", 0),
+            prompt_ms=body.get("prompt_eval_duration", 0) / 1e6,
+            gen_ms=body.get("eval_duration", 0) / 1e6,
+            total_ms=wall_ms,
+        )
     if result.prompt_tokens >= num_ctx:
         raise RuntimeError(
             f"prompt used {result.prompt_tokens} tokens >= num_ctx={num_ctx}: it may have been "
@@ -118,7 +131,7 @@ def chat(
         path.parent.mkdir(parents=True, exist_ok=True)
         data = asdict(result)
         data.pop("cached")
-        path.write_text(json.dumps(data, ensure_ascii=False))
+        path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     return result
 
 

@@ -33,7 +33,7 @@ def test_vote_executes_and_ignores_invalid_sql():
 
 
 def _question():
-    qs = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())
+    qs = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))
     return next(q for q in qs if q["db_id"] == "california_schools")
 
 

@@ -29,13 +29,21 @@ from birdeval.llm import DEFAULT_MODEL, OLLAMA_URL
 from birdeval.report import load_results, summarize
 
 ROOT = Path(__file__).resolve().parents[1]
-NODE22 = "/opt/homebrew/opt/node@22/bin"
+NODE22 = Path("/opt/homebrew/opt/node@22/bin")  # Homebrew's keg-only Node 22 (Mac); used only if present
+VENV_PYTHON = ROOT / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
 def promptfoo_env() -> dict:
     env = dict(os.environ)
-    env["PATH"] = f"{NODE22}:{env['PATH']}"
-    env["PROMPTFOO_PYTHON"] = str(ROOT / ".venv" / "bin" / "python")
+    if NODE22.is_dir():
+        env["PATH"] = f"{NODE22}{os.pathsep}{env['PATH']}"
+    env["PROMPTFOO_PYTHON"] = str(VENV_PYTHON)
+    env["PYTHONUTF8"] = "1"  # Windows: the cache and results files are UTF-8, not the ANSI code page
+    # One Python worker per provider. promptfoo's default is one per -j slot per provider, so the
+    # combined pass (-j 4) of a 28-config experiment started 112 numpy processes and exhausted
+    # Windows' commit limit (09 dev, 32 GB RAM). Concurrency across tests is unchanged.
+    env["PROMPTFOO_PYTHON_WORKERS"] = "1"
+    env.setdefault("OLLAMA_BASE_URL", "http://127.0.0.1:11434")  # promptfoo's ollama:chat (08/09 judge); see llm.OLLAMA_URL
     env["PROMPTFOO_CONFIG_DIR"] = str(ROOT / ".promptfoo")  # keep the eval DB in the project
     env["PROMPTFOO_DISABLE_TELEMETRY"] = "1"
     env["PROMPTFOO_DISABLE_UPDATE"] = "1"
@@ -49,12 +57,22 @@ def promptfoo_env() -> dict:
 def promptfoo(args: list[str], extra_env: dict | None = None, cache: bool = False) -> None:
     """cache=False: promptfoo's response cache is off (D18: its key ignores our imported modules).
     Experiment 08's native provider imports none of them, so it runs with cache=True (D23)."""
-    cmd = ["npx", "promptfoo", "eval", *args, *([] if cache else ["--no-cache"]), "--no-table", "--no-progress-bar"]
+    # On Windows, npx is a .cmd file run through cmd.exe, which would treat the `|` and `^` in a
+    # --filter-providers regex as a pipe and an escape. Call promptfoo's entry point with node instead.
+    want = os.environ.get("BIRDEVAL_OLLAMA_VERSION")  # pin: Ollama's updater replaced 0.40.16 mid-run in 09
+    if want:
+        import requests
+        have = requests.get(f"{OLLAMA_URL}/api/version", timeout=30).json()["version"]
+        if have != want:
+            raise SystemExit(f"Ollama is {have}, expected {want} (BIRDEVAL_OLLAMA_VERSION): stopping")
+    exe = (["node", str(ROOT / "node_modules" / "promptfoo" / "dist" / "src" / "entrypoint.js")] if os.name == "nt"
+           else ["npx", "promptfoo"])
+    cmd = [*exe, "eval", *args, *([] if cache else ["--no-cache"]), "--no-table", "--no-progress-bar"]
     print("$", " ".join(cmd), flush=True)
     env = {**promptfoo_env(), **(extra_env or {})}
-    proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
+    proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace")
     for line in proc.stdout.splitlines():
-        if re.search(r"passed|failed|errors|Duration|Error log", line):
+        if re.search(r"passed|failed|\d+ errors? \(|Duration|Error log", line):
             print("   ", line.strip(), flush=True)
     if proc.returncode not in (0, 100):  # promptfoo exits 100 when some tests fail: expected here
         print(proc.stdout[-3000:], proc.stderr[-3000:], file=sys.stderr)
@@ -75,7 +93,7 @@ def provenance(cfg: dict, raw: Path) -> str:
     models = sorted({model(p) for p in cfg["providers"]})
     tags = {m["name"]: m for m in requests.get(f"{OLLAMA_URL}/api/tags", timeout=10).json()["models"]}
     ollama = requests.get(f"{OLLAMA_URL}/api/version", timeout=10).json()["version"]
-    meta = json.loads(raw.read_text()).get("metadata", {})
+    meta = json.loads(raw.read_text(encoding="utf-8")).get("metadata", {})
     def quant(m: str) -> str:
         d = requests.post(f"{OLLAMA_URL}/api/show", json={"model": m}, timeout=10).json().get("details", {})
         return f"{d.get('parameter_size')}, {d.get('quantization_level')}, {d.get('runner') or d.get('format')}"
@@ -92,9 +110,16 @@ def main() -> None:
     ap.add_argument("--split", choices=["dev", "eval", "test"], required=True)
     ap.add_argument("--providers", default=".*", help="regex over provider labels")
     ap.add_argument("--no-warmup", action="store_true")
+    ap.add_argument("--replay", action="store_true",
+                    help="the warm-ups already filled the cache: run only the combined pass, cache-only")
+    ap.add_argument("--jobs", type=int, default=4, help="concurrency of a cache-only combined pass "
+                    "(09: lowered to 1 after the machine crashed under the -j 4 load)")
     a = ap.parse_args()
+    if os.name == "nt":  # keep Windows from idle-sleeping during the run (caffeinate -i on the Mac)
+        import ctypes
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)  # ES_CONTINUOUS | ES_SYSTEM_REQUIRED
 
-    cfg = yaml.safe_load(a.config.read_text())
+    cfg = yaml.safe_load(a.config.read_text(encoding="utf-8"))
     labels = [p["label"] for p in cfg["providers"] if re.search(a.providers, p["label"])]
     if not labels:
         raise SystemExit(f"no provider label matches {a.providers!r}")
@@ -102,7 +127,7 @@ def main() -> None:
     config = str(a.config.relative_to(ROOT) if a.config.is_absolute() else a.config)
 
     t0 = time.time()
-    if not a.no_warmup:
+    if not (a.no_warmup or a.replay):
         for label in labels:
             print(f"\n== warm-up: {label}", flush=True)
             promptfoo(["-c", config, "-t", tests, "--filter-providers", f"^{re.escape(label)}$",
@@ -112,8 +137,8 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     regex = "^(" + "|".join(re.escape(lbl) for lbl in labels) + ")$"
     print("\n== combined eval (cache hits)", flush=True)
-    warmed = not a.no_warmup  # without a warm-up the combined pass must call Ollama: run it serially
-    promptfoo(["-c", config, "-t", tests, "--filter-providers", regex, "-j", "4" if warmed else "1",
+    warmed = a.replay or not a.no_warmup  # without a warm-up the combined pass must call Ollama: run it serially
+    promptfoo(["-c", config, "-t", tests, "--filter-providers", regex, "-j", str(a.jobs) if warmed else "1",
                "-o", str(out), "--description", f"{cfg.get('description', a.config.stem)} [{a.split}]",
                "--tag", f"split={a.split}", "--tag", f"experiment={a.config.stem}"],
               extra_env={"BIRDEVAL_CACHE_ONLY": "1"} if warmed else None)
@@ -125,7 +150,7 @@ def main() -> None:
     summary = summarize(df, order=labels)
     md = ROOT / "results" / f"{a.config.stem}__{a.split}.md"
     md.write_text(f"# {cfg.get('description', a.config.stem)} — split `{a.split}`\n\n"
-                  + summary.to_markdown(index=False) + "\n" + provenance(cfg, out))
+                  + summary.to_markdown(index=False) + "\n" + provenance(cfg, out), encoding="utf-8")
     print(f"\n{summary.to_string(index=False)}\n\nwall time {(time.time() - t0) / 60:.1f} min -> {md.relative_to(ROOT)}")
 
 

@@ -70,7 +70,7 @@ def main() -> None:
         if a.limit is None:
             path = DERIVED / "summaries" / f"{db}.json"
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(json.dumps(summaries, indent=1, ensure_ascii=False))
+            path.write_text(json.dumps(summaries, indent=1, ensure_ascii=False), encoding="utf-8")
         rate = (time.time() - t0) / max(new, 1)
         print(f"{db:26s} {len(profiles):4d} columns ({new} new, {rate:.1f}s/new call)", flush=True)
         if a.limit is not None:

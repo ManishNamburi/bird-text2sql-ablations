@@ -114,7 +114,7 @@ def main() -> None:
     stem = a.results.stem.split("__")[0]
     cfg_path = ROOT / "promptfoo" / "configs" / f"{stem}.yaml"
     if cfg_path.exists():
-        order = [p["label"] for p in yaml.safe_load(cfg_path.read_text())["providers"]]
+        order = [p["label"] for p in yaml.safe_load(cfg_path.read_text(encoding="utf-8"))["providers"]]
         labels = [lbl for lbl in order if lbl in labels]
 
     pairs = default_pairs(labels) + [tuple(p.split(">")) for p in a.pairs.split(",") if p]
@@ -139,7 +139,7 @@ def main() -> None:
         + vote_md + chk_md + "## Paired comparisons\n\n"
         "`fixed` = questions only the second config gets right; `broke` = only the first. "
         "McNemar exact test on those discordant questions; bootstrap CI resamples questions (10,000×).\n\n"
-        + comp.to_markdown(index=False) + "\n")
+        + comp.to_markdown(index=False) + "\n", encoding="utf-8")
     print(summary.to_string(index=False), "\n")
     if votes is not None:
         print(votes.to_string(index=False), "\n")

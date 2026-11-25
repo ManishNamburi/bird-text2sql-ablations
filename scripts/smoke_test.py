@@ -22,7 +22,7 @@ def ddl(db_id: str) -> str:
     return "\n\n".join(r[0] for r in rows)
 
 
-questions = [q for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text()) if q["db_id"] == DB][:3]
+questions = [q for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8")) if q["db_id"] == DB][:3]
 schema = ddl(DB)
 print(f"model={MODEL} db={DB} schema_chars={len(schema)}\n")
 for q in questions:

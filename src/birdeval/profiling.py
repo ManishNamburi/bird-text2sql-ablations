@@ -145,12 +145,12 @@ def profiles_path(db_id: str) -> Path:
 def save_profiles(db_id: str, profiles: list[ColumnProfile]) -> Path:
     path = profiles_path(db_id)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps([{**asdict(p), "english": english(p)} for p in profiles], indent=1, ensure_ascii=False))
+    path.write_text(json.dumps([{**asdict(p), "english": english(p)} for p in profiles], indent=1, ensure_ascii=False), encoding="utf-8")
     return path
 
 
 def load_profiles(db_id: str) -> list[dict]:
-    return json.loads(profiles_path(db_id).read_text())
+    return json.loads(profiles_path(db_id).read_text(encoding="utf-8"))
 
 
 # A quoted literal in an LLM summary: opens after a non-word char, closes before one. An inner
@@ -175,7 +175,7 @@ def load_summaries(db_id: str, detail: str = "long") -> dict[tuple[str, str], st
     if not path.exists():
         raise FileNotFoundError(f"{path} missing - run: uv run python scripts/summarize_profiles.py")
     out = {}
-    for key, s in json.loads(path.read_text()).items():
+    for key, s in json.loads(path.read_text(encoding="utf-8")).items():
         table, column = key.split(".", 1)
         out[(table.lower(), column.lower())] = " ".join(s[detail].split())
     return out

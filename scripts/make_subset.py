@@ -25,7 +25,7 @@ OUT = Path(__file__).resolve().parents[1] / "data" / "subset_ids.json"
 
 def unique_questions() -> list[dict]:
     seen, out = set(), []
-    for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text()):
+    for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8")):
         if q["question_id"] not in seen:  # MiniDev contains exact duplicates of qid 137 and 138
             seen.add(q["question_id"])
             out.append(q)
@@ -63,7 +63,7 @@ def main() -> None:
     test = sorted(q["question_id"] for q in rest)
     assert not set(dev) & set(eval_) and not set(dev) & set(test) and set(eval_) <= set(test)
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps({"seed": SEED, "dev": dev, "eval": eval_, "test": test}, indent=1))
+    OUT.write_text(json.dumps({"seed": SEED, "dev": dev, "eval": eval_, "test": test}, indent=1), encoding="utf-8")
 
     by_id = {q["question_id"]: q for q in qs}
     for name, ids in [("dev", dev), ("eval", eval_), ("test", test)]:

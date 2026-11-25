@@ -49,12 +49,12 @@ def _norm_sql(s: str) -> str:
 
 def load_pools() -> dict[str, list[dict]]:
     """{'train': [...], 'querylog': [...]} with keys id, db_id, question, evidence, SQL."""
-    train = [json.loads(line) for line in TRAIN_FILE.read_text().splitlines() if line.strip()]
+    train = [json.loads(line) for line in TRAIN_FILE.read_text(encoding="utf-8").splitlines() if line.strip()]
     train = [{**r, "id": f"train:{i}"} for i, r in enumerate(train)]
-    minidev = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())
+    minidev = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))
     eval_ids = {q["question_id"] for q in minidev}
     eval_sql = {_norm_sql(q["SQL"]) for q in minidev}
-    dev = json.loads(DEV_FILE.read_text())
+    dev = json.loads(DEV_FILE.read_text(encoding="utf-8"))
     querylog = [{**r, "id": f"dev:{r['question_id']}"} for r in dev
                 if r["question_id"] not in eval_ids and _norm_sql(r["SQL"]) not in eval_sql]
     return {"train": train, "querylog": querylog}
@@ -86,7 +86,7 @@ def _path(name: str) -> Path:
 
 def save_masked(name: str, ids: list[str], masked: list[str]) -> None:
     FEWSHOT_DIR.mkdir(parents=True, exist_ok=True)
-    _path(name).write_text(json.dumps(dict(zip(ids, masked)), indent=1, ensure_ascii=False))
+    _path(name).write_text(json.dumps(dict(zip(ids, masked)), indent=1, ensure_ascii=False), encoding="utf-8")
 
 
 def save_embeddings(name: str, ids: list[str], texts: list[str]) -> None:
