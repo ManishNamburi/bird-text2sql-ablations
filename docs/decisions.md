@@ -257,3 +257,44 @@ Experiment 08 revisits D18's "skipped" list for single-call configs. Config `pro
   - the judge's κ against EX was 0.43, it overstated the coder's hint gain about twofold (+18.0 vs +9.3 pp), and 33 of its 600 verdicts were unreadable;
   - no self-preference was detected.
 - *Tradeoff kept from D18:* multi-call configs (linking, voting, checks) stay on the custom provider. Their logic is Python, not a single request.
+
+## D24 — Test-split replication on a second machine: what's held fixed, and how it's read
+Experiment 09 tests the four leads that 01–08 left open on eval, on all 468 test questions, on a Windows desktop: RTX 5070 with 12 GB, Ollama 0.40.17, promptfoo 0.125.1, Node 22.23, Python 3.12. Config `promptfoo/configs/09_replication.yaml`, judge cells `scripts/run_native.py --experiment 09_judge`, spec `tasks/todo.md` (2026-11-22 to 24).
+- **Its own run, not a continuation.**
+  - `qwen3.5:9b` here is a different build: digest `56671c2ab938`, Q4_K_M, llama.cpp runner, against the Mac's `d63f830f28d5`, nvfp4, MLX. `qwen2.5-coder:7b` is the same digest, `dae161e27b0e`. `nomic-embed-text` is `0a109f422b47`.
+  - The disk cache doesn't transfer, so every call is new. Labels carry `@5070`, and the export refuses a label without it, so no row can join the Mac's tables.
+- **Modelfile defaults, recorded, not changed.** This qwen3.5 build ships `temperature 1`, `top_k 20`, `top_p 0.95` and `presence_penalty 1.5`. The requests override temperature (0), seed, `num_ctx` and `num_predict`, so the presence penalty stays in effect: it can change greedy output and the T 0.7 vote candidates. Setting it to 0 would have been one more difference from the Mac's pipeline, so the user kept the defaults. The coder's Modelfile sets none of these.
+- **Confirmatory set: the 318 test questions outside eval.** Every lead was chosen on the 150 eval questions, and H3 and H4 were post hoc. So the verdicts use the fresh questions, with all 468 reported beside them (the user's choice at spec approval). This costs about 1 pp of CI width and removes the selection effect. It's a deviation from D21's test-split convention (468 primary, 318 secondary), made for that reason.
+- **Family and rule, pre-registered:**
+  - Six tests, Holm over them: H1a/b C7 > C1, H2a/b C4 > C3, H3 the hint × model interaction pooled over the 7 configs, H4 judge-vs-EX hint gain on C1@coder.
+  - H3 and H4 have no McNemar, so they use a two-sided paired bootstrap p.
+  - Supported = Holm p < 0.05 with the predicted sign; contradicted = the CI excludes 0 on the other side; else unknown.
+  - Expected CI half-widths (from eval's paired SDs) were written down first; the observed ones match them within about 1 pp.
+- **Windows adaptations** (harness only; the Mac's behaviour is unchanged):
+  - `encoding="utf-8"` on every text read and write (46 sites), because the default code page is cp1252. Checked: prompt-token counts match the Mac's on 40 of 40 requests.
+  - Ollama at `127.0.0.1`, not `localhost`. Windows tries IPv6 first, which cost about 2 s per call.
+  - promptfoo started with `node …/entrypoint.js`, because `npx.cmd` runs through `cmd.exe`, which read the `|` and `^` in the provider regex.
+  - `PROMPTFOO_PYTHON_WORKERS=1`. 112 numpy workers exhausted the memory-commit limit.
+  - `SetThreadExecutionState`, the equivalent of `caffeinate`.
+  - A cache-only `--replay` with `--jobs`.
+- **Ollama's repeat-limit abort is cached as a failed reply.** Ollama stops a generation that keeps repeating a token, with HTTP 500 and no reply. An uncached error would fail the whole cache-only pass, so `llm.chat` caches this one error as `ABORTED_REPLY`. That's a SQL block that doesn't execute: EX 0, no linked fields, no vote, which is what a runtime without the guard would score. Not an empty string, because SQLite runs "" as a valid query. Every other HTTP error still raises. 0 aborts were cached in the final run.
+- **Version pin.** Ollama's updater replaced 0.40.16 with 0.40.17 a minute into the first start. The user chose 0.40.17 for all of 09, and determinism was re-checked on it (10/10 for both models). Auto-update is off, and the runner stops if `/api/version` doesn't match `BIRDEVAL_OLLAMA_VERSION`.
+- **Hardware incidents, and why the results stand.** All 28 warm-ups finished on the GPU with 0 errors. Then two things failed during the cache-only combined pass:
+  - **The GPU dropped off the bus** (`nvlddmkm` event 153). Ollama fell back to the CPU. Schema linking's query embeddings aren't disk-cached, so they were recomputed on the CPU, which changed near-tied columns. That gave 30 cache misses on 5 questions and 1 embed HTTP 400. After a reboot, those 31 rows were cache hits on the GPU (31/31), so the cause was the CPU fallback, not the cached replies.
+  - **The next replay ended in a fatal CPU machine-check exception** (WHEA 18, cache hierarchy error, core 0). It happened under the -j 4 replay's load. No hardware error had been logged in the 30 days before.
+
+  All 23,383 cache entries still parsed. The replay was rerun at -j 1, as the user chose: 13,104 rows, 0 errors, pass counts equal to the warm-ups'. A cache-only pass can't change a reply, only fail. The hardware cause is the user's to diagnose.
+- **Lesson kept:** the replay assumes live embeddings reproduce the warm-up's bit for bit. Caching query embeddings would remove that dependency. It wasn't changed mid-experiment, because it doesn't affect any cached reply.
+- **Outcome (2026-11-24),** fresh 318:
+  - **H1 supported:** C7 − C1 +14.8 / +11.0 pp, both Holm p < 0.001;
+  - **H2b supported:** linking with hints, +6.0, Holm p = 0.017;
+  - **H2a unknown:** +1.9 without hints;
+  - **H3 unknown and didn't replicate:** +0.6. On the same machine's eval questions it was −5.8, so the lead was the eval questions;
+  - **H4 unknown:** +6.6, CI +0.6 to +12.6, Holm p = 0.106, the same direction as 08.
+
+  Secondary: the coder reproduces the Mac within ±2.0 pp on eval, and the new qwen3.5 build is 0.7–4.7 pp lower in 13 of 14 cells, without a test. Details in `docs/results.md` §09.
+- **Determinism finding.** On 0.40.17's llama.cpp runner, a reply depends on server state, not only on the request. Evidence:
+  - one request aborted when sent alone and got a normal reply inside the pipeline;
+  - the native-vs-custom check matched 853 of 936 coder replies (08 on the Mac: 300 of 300), and 1,628 of 1,872 overall.
+
+  So 09's numbers are reproducible through the disk cache, not from the request. A shuffled-order check that would size this wasn't run.

@@ -1,7 +1,9 @@
 # One-word entry points. promptfoo needs Node >= 22.22; Homebrew's keg-only node@22 is used
-# without touching the system Node.
-NODE22 := /opt/homebrew/opt/node@22/bin
+# without touching the system Node, if it is installed (Mac); elsewhere the Node on PATH is used.
+NODE22 := $(wildcard /opt/homebrew/opt/node@22/bin)
+ifneq ($(NODE22),)
 export PATH := $(NODE22):$(PATH)
+endif
 export PROMPTFOO_PYTHON := $(CURDIR)/.venv/bin/python
 export PROMPTFOO_CONFIG_DIR := $(CURDIR)/.promptfoo
 export PROMPTFOO_DISABLE_TELEMETRY := 1

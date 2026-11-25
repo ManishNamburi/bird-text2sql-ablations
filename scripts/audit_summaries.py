@@ -27,7 +27,7 @@ def main() -> None:
 
     items = []
     for db in sorted(p.name for p in DB_ROOT.iterdir() if p.is_dir()):
-        summaries = json.loads((DERIVED / "summaries" / f"{db}.json").read_text())
+        summaries = json.loads((DERIVED / "summaries" / f"{db}.json").read_text(encoding="utf-8"))
         for p in load_profiles(db):
             items.append((db, p, summaries[f"{p['table']}.{p['column']}"]))
     sample = random.Random(a.seed).sample(items, a.n)
@@ -44,7 +44,7 @@ def main() -> None:
                   f"**Long:** {s['long']}", "",
                   "**Grade:** _TODO_", ""]
     out = ROOT / "docs" / "summary_audit.md"
-    out.write_text("\n".join(lines))
+    out.write_text("\n".join(lines), encoding="utf-8")
     print(f"wrote {out.relative_to(ROOT)}")
 
 

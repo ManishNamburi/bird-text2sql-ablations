@@ -59,7 +59,7 @@ def main() -> None:
     print(pd.crosstab(fails["difficulty"], fails["category"]).to_markdown())
 
     if a.dump:
-        qs = {q["question_id"]: q for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())}
+        qs = {q["question_id"]: q for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))}
         sample = fails.sample(N_SAMPLE, random_state=SEED).sort_values("question_id")
         out = []
         for r in sample.itertuples():
@@ -69,7 +69,7 @@ def main() -> None:
                 f"Q: {q['question']}\nHint (not shown to C7): {q['evidence']}\n"
                 f"PRED: {r.sql}\nGOLD: {q['SQL']}\n"
                 f"PRED rows: {(r.pred_rows or [])[:5]!r}\nGOLD rows: {load_gold()[r.question_id]['rows'][:5]!r}\n")
-        a.dump.write_text("\n".join(out))
+        a.dump.write_text("\n".join(out), encoding="utf-8")
         print(f"\n-> {a.dump} ({len(out)} cases: qids {sorted(sample['question_id'])})")
 
 

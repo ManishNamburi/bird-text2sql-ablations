@@ -12,7 +12,7 @@ from birdeval.sqlexec import DATA_ROOT, GOLD_CACHE, execute
 
 
 def main() -> int:
-    questions = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())
+    questions = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))
     cache, failures = {}, []
     for i, q in enumerate(questions, 1):
         r = execute(q["db_id"], q["SQL"], timeout_s=900)

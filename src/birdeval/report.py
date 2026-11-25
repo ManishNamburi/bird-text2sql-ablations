@@ -22,7 +22,7 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
 
 def load_results(path: str | Path) -> pd.DataFrame:
     """One row per (config, question)."""
-    data = json.loads(Path(path).read_text())
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
     rows = []
     for r in data["results"]["results"]:
         resp = r.get("response") or {}

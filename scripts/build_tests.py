@@ -18,8 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main() -> None:
-    splits = json.loads((ROOT / "data" / "subset_ids.json").read_text())
-    by_id = {q["question_id"]: q for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())}
+    splits = json.loads((ROOT / "data" / "subset_ids.json").read_text(encoding="utf-8"))
+    by_id = {q["question_id"]: q for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))}
     out_dir = ROOT / "promptfoo" / "tests"
     out_dir.mkdir(parents=True, exist_ok=True)
     for split in ("dev", "eval", "test"):
@@ -33,7 +33,7 @@ def main() -> None:
             for q in qs
         ]
         path = out_dir / f"{split}.yaml"
-        path.write_text(yaml.safe_dump(tests, sort_keys=False, allow_unicode=True, width=1000))
+        path.write_text(yaml.safe_dump(tests, sort_keys=False, allow_unicode=True, width=1000), encoding="utf-8")
         print(f"{split}: {len(tests)} tests -> {path.relative_to(ROOT)}")
 
 

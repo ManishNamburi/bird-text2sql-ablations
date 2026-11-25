@@ -30,7 +30,7 @@ def build(name: str, ids: list[str], questions: list[str]) -> None:
 def main() -> None:
     pools = load_pools()
     seen, minidev = set(), []
-    for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text()):
+    for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8")):
         if q["question_id"] not in seen:
             seen.add(q["question_id"])
             minidev.append(q)

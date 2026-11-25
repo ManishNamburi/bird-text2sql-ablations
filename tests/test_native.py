@@ -21,8 +21,8 @@ from prompts import c1  # noqa: E402
 
 HAVE_DATA = (DATA_ROOT / "mini_dev_sqlite.json").exists()
 pytestmark = pytest.mark.skipif(not HAVE_DATA, reason="MiniDev not downloaded")
-CONFIG = yaml.safe_load((ROOT / "promptfoo/configs/08_native.yaml").read_text())
-QUESTIONS = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text()) if HAVE_DATA else []
+CONFIG = yaml.safe_load((ROOT / "promptfoo/configs/08_native.yaml").read_text(encoding="utf-8"))
+QUESTIONS = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8")) if HAVE_DATA else []
 
 
 def _vars(q):

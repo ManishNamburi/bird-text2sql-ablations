@@ -8,7 +8,7 @@ import pytest
 from birdeval.llm import extract_sql
 from birdeval.sqlexec import DATA_ROOT, execute, load_gold, results_match, score_question, timeout_for
 
-QUESTIONS = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())
+QUESTIONS = json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))
 FAST = [q for q in QUESTIONS if load_gold()[q["question_id"]]["ms"] < 200]
 
 
@@ -94,5 +94,37 @@ def test_cache_only_mode_refuses_misses_but_serves_hits(tmp_path, monkeypatch):
     (tmp_path / key[:2]).mkdir()
     (tmp_path / key[:2] / f"{key}.json").write_text(json.dumps(
         {"text": "ok", "model": llm.DEFAULT_MODEL, "prompt_tokens": 1, "completion_tokens": 1,
-         "prompt_ms": 1, "gen_ms": 1, "total_ms": 2}))
+         "prompt_ms": 1, "gen_ms": 1, "total_ms": 2}), encoding="utf-8")
     assert llm.chat(msgs).cached
+
+
+def test_repeat_limit_abort_is_cached_as_invalid_sql(tmp_path, monkeypatch):
+    """Ollama's "token repeat limit reached" 500 becomes a cached reply that fails to execute (09);
+    any other server error still raises."""
+    import requests
+
+    from birdeval import llm
+    from birdeval.sqlexec import score_question
+
+    class Resp:
+        def __init__(self, code, text):
+            self.status_code, self.text = code, text
+
+        def raise_for_status(self):
+            raise requests.HTTPError(f"{self.status_code}")
+
+    monkeypatch.setattr(llm, "CACHE_DIR", tmp_path)
+    monkeypatch.delenv("BIRDEVAL_CACHE_ONLY", raising=False)
+    monkeypatch.setattr(llm.requests, "post", lambda *a, **k: Resp(500, '{"error":"prediction aborted, token repeat limit reached"}'))
+    msgs = [{"role": "user", "content": "loop"}]
+    r = llm.chat(msgs)
+    assert r.aborted and not r.cached
+    q = QUESTIONS[0]
+    s = score_question(q["question_id"], q["db_id"], llm.extract_sql(r.text))
+    assert not s.valid_sql and not s.match
+    monkeypatch.setattr(llm.requests, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("called Ollama")))
+    again = llm.chat(msgs)
+    assert again.cached and again.aborted and again.text == llm.ABORTED_REPLY
+    monkeypatch.setattr(llm.requests, "post", lambda *a, **k: Resp(500, '{"error":"model runner has unexpectedly stopped"}'))
+    with pytest.raises(requests.HTTPError):
+        llm.chat([{"role": "user", "content": "other"}])

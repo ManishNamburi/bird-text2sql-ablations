@@ -141,7 +141,7 @@ def link(q: dict, *, model: str, hints: bool, variants: tuple[str, ...], k: int,
 
 @lru_cache(maxsize=1)
 def _gold_sql() -> dict[int, str]:
-    return {q["question_id"]: q["SQL"] for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text())}
+    return {q["question_id"]: q["SQL"] for q in json.loads((DATA_ROOT / "mini_dev_sqlite.json").read_text(encoding="utf-8"))}
 
 
 def oracle_fields(q: dict) -> set[Field]:
