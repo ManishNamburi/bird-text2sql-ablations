@@ -1,6 +1,6 @@
 # Results
 
-All numbers are BIRD execution accuracy (EX) on the frozen **eval split: 150 MiniDev questions**, stratified by database and difficulty, with `qwen3.5:9b` (thinking off, temperature 0) via Ollama on an M3 Pro with 18 GB.
+All numbers are BIRD execution accuracy (EX) on the frozen **eval split: 150 MiniDev questions**, stratified by database and difficulty, with `qwen3.5:9b` (thinking off, temperature 0) via Ollama on an M3 Pro with 18 GB. The exceptions are labelled: the T1 check in §06 uses the 468-question test split, and §09 reruns the headline configs on that split on a second machine (RTX 5070, another qwen3.5 build).
 Because every config answers the same questions, comparisons are **paired**: an exact McNemar test on the questions where the two configs disagree, plus a paired bootstrap 95% CI for the difference.
 Generated tables are in `results/*_analysis.md`. This page interprets them.
 
@@ -348,3 +348,74 @@ The grader is `qwen3.5:9b` (temperature 0, seed 42, thinking off, JSON output), 
 - **Set `is-sql`'s `databaseType`.** The MySQL default rejected 6.4% of valid SQLite queries.
 - **Treat an LLM judge as a screen, not a metric.** κ = 0.43 against execution, and it doubled one A/B effect. Where execution is available, it's the metric. Where it isn't, the judge's errors are correlated with the intervention being tested, which is the case that matters.
 - **The reproducibility finding outranks the feature tour:** "temperature 0, seed 42" did not make qwen3.5:9b on MLX deterministic. The cache, not the seed, is what makes this project's numbers reproducible.
+
+---
+
+## Experiment 09 — The headline configs on the 468-question test split, on a second machine (D24)
+
+**This section is not on the eval split, and not on the Mac.** Experiments 01–08 left four leads open on the 150 eval questions:
+- the full pipeline beats C1;
+- schema linking helps;
+- hints help the coder less;
+- the LLM judge overstates the coder's hint gain.
+
+09 tests them on all 468 test questions, on a Windows desktop with an RTX 5070 (12 GB), Ollama 0.40.17 on the llama.cpp runner. The design:
+- **Configs:** the seven headline configs (C0, C1, C3, C4, C6, C7, oracle), ± hints, on both models: 28 configs, plus the 08 judge cells (C1 ± hints × 2 models).
+- **Models:** `qwen3.5:9b` here is a different build from the Mac's (Q4_K_M, digest `56671c2ab938`, on llama.cpp, against nvfp4 on MLX). `qwen2.5-coder:7b` is the same digest (`dae161e27b0e`).
+- **Nothing reused:** the disk cache doesn't transfer, so every call is new on this machine. Labels carry `@5070`, so no row can join the Mac's tables.
+- **Pre-registered:** the hypotheses, the question set that carries the verdict, the test family and the reading rule were written in `tasks/todo.md` before any model call on this machine.
+
+The 150 eval questions are inside the test split, and every lead was *chosen* on them. So the verdicts use the **318 test questions outside eval**, with all 468 reported beside them. Source: `results/per_question_5070.csv` and `results/per_question_native_5070.csv`; all tables are in `results/summary.md`.
+
+**Run:**
+- **Generation:** 22,000 new LLM calls (11,055 qwen3.5, 10,945 coder), 5.2 h of model time, on 2026-11-23. Then the judge cells on 2026-11-24: 1,872 generations, then 1,872 live verdicts.
+- **Clean:** 0 provider errors. The largest prompt was 19,757 tokens against the enforced `num_ctx` of 24,576 (D13). Ollama's repeat-limit abort (D24) stopped one request in an early start; in the final run that request got a normal reply, so 0 cached calls are aborts.
+- **Version change:** Ollama auto-updated from 0.40.16 to 0.40.17 a minute into the first start. The job was stopped, the user chose to stay on 0.40.17, and every test-split call is from 0.40.17.
+- **Hardware failures:** the GPU dropped off the bus during the cache-only combined pass, and the next replay was ended by a fatal CPU machine-check error. Neither touched a recorded reply (D24). The combined pass was finally replayed at concurrency 1 with 0 errors, and its pass counts equal the warm-ups' for all 28 configs.
+
+### The pre-registered tests
+
+Holm over the 6 tests in each question set. H1/H2 use an exact McNemar. H3 and H4 are interactions, so their p is a two-sided paired bootstrap. H4 uses the promptfoo-native C1 cells, with their EX and the judge on the same rows.
+
+| # | Hypothesis | Mac, eval 150 | 5070, same 150 | **5070, fresh 318 (95% CI)** | Holm p | Verdict | 5070, all 468 |
+|---|---|---|---|---|---|---|---|
+| H1a | C7 > C1, no hints | +8.7 | +6.0 | **+14.8** (+9.7 to +20.1) | < 0.001 | **supported** | +12.0 |
+| H1b | C7 > C1, with hints | +8.0 | +8.7 | **+11.0** (+6.3 to +16.0) | < 0.001 | **supported** | +10.3 |
+| H2a | C4 > C3 (linking), no hints | +4.7 | +2.7 | +1.9 (−2.2 to +6.0) | 0.923 | unknown | +2.1 |
+| H2b | C4 > C3, with hints | +3.3 | +0.0 | **+6.0** (+2.2 to +10.1) | 0.017 | **supported** | +4.1 |
+| H3 | hints help the coder less (pooled over 7 configs) | −7.9 | −5.8 | +0.6 (−3.4 to +4.5) | 0.923 | unknown | −1.5 |
+| H4 | the judge overstates the coder's hint gain | +8.7 | +8.0 | +6.6 (+0.6 to +12.6) | 0.106 | unknown | +7.1 |
+
+*Δ in pp. "Supported" = Holm p < 0.05 with the predicted sign; "contradicted" = the CI excludes 0 on the other side; anything else is unknown, not "no effect". The "5070, same 150" column is descriptive: it's this machine's run on the questions the leads were chosen on.*
+
+### Findings
+
+1. **The full pipeline beats a single call with BIRD descriptions** (H1, supported both ways). C7 − C1 is +14.8 pp without hints (61 questions fixed, 14 broken) and +11.0 with them, both Holm p < 0.001. On eval this was +8.7 with Holm p = 0.35 (§05): a lead then, a result now. It costs 11.0× C1's time and 10.8× its prompt tokens on this machine (qwen3.5: 9.4 against 0.85 s/q).
+2. **Schema linking helps with hints; without hints it's unknown** (H2). C4 − C3 is +6.0 pp with hints (30 fixed, 11 broken, Holm p = 0.017) and +1.9 (−2.2 to +6.0) without. Linking recall on all 468 is 0.864 without hints and 0.912 with them, so hints also help the linker keep the needed columns. That fits a larger gain with hints, but nothing here tests that mechanism.
+3. **"Hints help the coder less" didn't replicate** (H3). On the 318 fresh questions the pooled difference is +0.6 pp (−3.4 to +4.5). On the 150 eval questions, the same machine gives −5.8, close to the Mac's −7.9. The lead belonged to the questions it was found on, not to the model or the machine, which is the selection effect the fresh-question rule was there to catch.
+4. **The judge still points toward overstating the coder's hint gain, but it doesn't pass the bar** (H4). The difference is +6.6 pp on the fresh questions (CI +0.6 to +12.6, bootstrap p = 0.035), and +8.0 and +7.1 on the eval and all-468 sets. After Holm over 6 it's p = 0.106, so the pre-registered reading is "unknown". It's the same direction and size as 08's +8.7.
+5. **The ladder's shape replicates on both models, at 468 questions.** All steps below are unadjusted, so they're descriptive (`results/summary.md` has both ladders):
+   - **BIRD descriptions** (C0 → C1, no hints): +9.4 (qwen3.5) and +8.8 (coder), both p < 0.001.
+   - **Profiling** (C1 → C3, no hints): +6.8 (p < 0.001) and +4.5 (p = 0.019). On eval it was +2.0 on both models, not significant, so at n = 468 the paper's profiling gain shows up on its own.
+   - **Voting and checks** (C4 → C6 → C7): +0.0 to +1.7 per step on qwen3.5, none with p < 0.05. On the coder, voting with hints is +2.6 (p = 0.004); every other voting and check step is between −0.2 and +0.6.
+   - **Perfect linking** (oracle vs C4): +11.3 / +6.6 (qwen3.5) and +9.4 / +10.5 (coder), all p < 0.001.
+6. **Same questions, other machine: the coder reproduces the Mac; qwen3.5's new build is a little lower.** On the 150 eval questions, the coder's EX is within ±2.0 pp of the Mac's in every cell. With hints it's identical per question on C1, C3, C4 and the oracle: same digest, same answers. The 5070's qwen3.5 build is lower in 13 of 14 cells, by −0.7 to −4.7 pp (one cell +0.7). No CI excludes 0; the closest is the oracle without hints, −4.7 (−9.3 to 0.0). That's a build-and-runtime difference, not a model effect, and it isn't tested.
+7. **The judge on the 5070 behaves as in 08.**
+   - It agrees with EX on 70.8% of the 1,872 outputs, κ = 0.40 (08: 72.2%, κ = 0.43).
+   - Sensitivity is 70.7% and specificity 70.8%.
+   - 58 verdicts (3.1%) were unreadable and count as fails.
+   - By the judge, hints add +18.8 pp on qwen3.5 and +19.0 on the coder; by EX, +13.7 and +12.0.
+8. **The native provider matched the custom one less often here, for both models.** 1,628 of 1,872 native SQL strings equal the custom provider's cached reply:
+   - coder: 417 and 436 of 468 (08 on the Mac: 300 of 300);
+   - qwen3.5: 377 and 398.
+
+   Of the 244 that differ, 127 equal a fresh call through `birdeval.llm.chat`: Ollama now gives a different reply than the one it gave a day earlier. The other 117 equal neither. EX moves by 0.7 pp or less in each cell (native vs custom: 31.6 / 31.8, 45.3 / 44.7, 34.6 / 35.3, 46.6 / 47.2).
+
+   This fits what Step 1 found. 10 calls repeated in the same order after a model reload were 10/10 identical on both models. But one C4-oracle request aborted three times when sent alone, and got a normal reply inside the pipeline. So on 0.40.17's llama.cpp runner a reply depends on server state (which cached prompt prefix it reuses), not on the request alone. **Every 09 number is reproducible through the disk cache, not from the request.** A shuffled-order determinism check that would size this wasn't run.
+9. **Cost on this machine:** C1 takes 0.85 s per question (coder 0.57), and C7 9.4 s (coder 6.4). On the same 150 eval questions the 5070 is 3.5–7.4× faster per question than the Mac, and C7's gain is the largest (5.4× for qwen3.5, against 3.5× for C1). So C7 vs C1 is 16× the time on the Mac and 11× here. Absolute seconds stay machine-specific.
+
+### Answer to "do the eval leads hold?"
+- **Two of the four do: the full pipeline beats C1 by 11–15 points, and linking helps when hints are given.** Both are larger on the fresh questions than on eval.
+- **The hint × model lead was a property of the eval questions.** On the same machine it is −5.8 on eval and +0.6 on the 318 fresh questions.
+- **The judge's bias toward the coder's hint gain is consistent in size (+6.6 to +8.7 pp across sets) but not established** after correcting for the six tests.
+- **The deployment pick changes.** At the eval split's precision, C1 looked like the cheap pick, with the pipeline's gain uncertain. On 468 questions the pipeline's +12.0 pp without hints is real. Whether it's worth 11× the time per question is a product decision, and the numbers for it are now known.

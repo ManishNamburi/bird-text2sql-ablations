@@ -1,0 +1,111 @@
+# Experiment 09 — test-split replication on the RTX 5070 desktop (spec in tasks/todo.md, D24).
+# The seven headline configs, hints off/on, on both models, with the flags of 01/02/04/05/07
+# unchanged. Labels carry @5070 so no row can join the Mac's results. Nothing is tuned.
+# Order matters for the warm-up: all qwen3.5 configs first, then the coder (one model loaded
+# at a time), and within a model C4-linked fills the linking and candidate-1 cache that
+# C6-vote and C7 reuse.
+# Run with:  uv run python scripts/run_ablation.py promptfoo/configs/09_replication.yaml --split test
+description: "09 RTX 5070: C0, C1, C3, C4-oracle, C4, C6-vote, C7, hints on/off, qwen3.5:9b and qwen2.5-coder:7b"
+
+prompts:
+  - "{{question}}" # unused by the pipeline provider; it builds its own prompts from vars
+
+providers:
+  - id: file://../providers/pipeline.py
+    label: C0-ddl@5070
+    config: { model: qwen3.5:9b, metadata: none, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C1-bird@5070
+    config: { model: qwen3.5:9b, metadata: bird, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C3-fused@5070
+    config: { model: qwen3.5:9b, metadata: fused, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C4-oracle@5070
+    config: { model: qwen3.5:9b, metadata: fused, linking: oracle, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C4-linked@5070
+    config: { model: qwen3.5:9b, metadata: fused, linking: llm, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C6-vote@5070
+    config: { model: qwen3.5:9b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C7@5070
+    config: { model: qwen3.5:9b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, checks: true, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C0-ddl@5070+hints
+    config: { model: qwen3.5:9b, metadata: none, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C1-bird@5070+hints
+    config: { model: qwen3.5:9b, metadata: bird, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C3-fused@5070+hints
+    config: { model: qwen3.5:9b, metadata: fused, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C4-oracle@5070+hints
+    config: { model: qwen3.5:9b, metadata: fused, linking: oracle, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C4-linked@5070+hints
+    config: { model: qwen3.5:9b, metadata: fused, linking: llm, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C6-vote@5070+hints
+    config: { model: qwen3.5:9b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C7@5070+hints
+    config: { model: qwen3.5:9b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, checks: true, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C0-ddl@coder@5070
+    config: { model: qwen2.5-coder:7b, metadata: none, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C1-bird@coder@5070
+    config: { model: qwen2.5-coder:7b, metadata: bird, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C3-fused@coder@5070
+    config: { model: qwen2.5-coder:7b, metadata: fused, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C4-oracle@coder@5070
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: oracle, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C4-linked@coder@5070
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C6-vote@coder@5070
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C7@coder@5070
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, checks: true, hints: false }
+  - id: file://../providers/pipeline.py
+    label: C0-ddl@coder@5070+hints
+    config: { model: qwen2.5-coder:7b, metadata: none, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C1-bird@coder@5070+hints
+    config: { model: qwen2.5-coder:7b, metadata: bird, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C3-fused@coder@5070+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C4-oracle@coder@5070+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: oracle, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C4-linked@coder@5070+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C6-vote@coder@5070+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, hints: true }
+  - id: file://../providers/pipeline.py
+    label: C7@coder@5070+hints
+    config: { model: qwen2.5-coder:7b, metadata: fused, linking: llm, votes: 3, vote_temperature: 0.7, checks: true, hints: true }
+
+# Per-config percentages in the web viewer and JSON (named scores are summed per column;
+# __count = tests in the column). CIs and paired tests stay in analysis/analyze.py.
+derivedMetrics:
+  - name: EX_pct
+    value: 100 * ex / __count
+  - name: valid_sql_pct
+    value: 100 * valid_sql / __count
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://../asserts/ex_match.py
+      metric: ex

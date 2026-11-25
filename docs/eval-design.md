@@ -18,7 +18,8 @@ promptfoo's own prompt template is a placeholder (`{{question}}`). Multi-step co
 - **Splits:** built once by `scripts/make_subset.py` with seed 42, stratified by database × difficulty, and committed as `data/subset_ids.json`:
   - **dev**, 30 questions: the only split prompts were ever iterated on;
   - **eval**, 150 questions: frozen, and used for every reported number;
-  - **test**, all 468 non-dev questions: reserved for headline runs.
+  - **test**, all 468 non-dev questions: reserved for headline runs (the T1 check in 06, the replication in 09).
+- **Confirmatory questions on test (D24).** Test contains the 150 eval questions. Where a hypothesis was found on eval, the verdict uses the 318 test questions outside eval, and all 468 are reported beside them. 09's hint × model lead shows why: −5.8 pp on the eval questions, +0.6 on the fresh ones, on the same machine.
 - **The eval split stays frozen.** Twice, a dev "winner" vanished on eval (few-shot framing, voting). That's the reason the split is never tuned on.
 
 ## Metric (D9)
@@ -38,6 +39,8 @@ promptfoo's own prompt template is a placeholder (`{{question}}`). Multi-step co
 
   Pairing detects differences of roughly 5 pp, where two independent CIs (about ±8 pp each) couldn't.
 - **Multiple comparisons:** when several tests are read together (the pairwise matrix in `results/summary.md`, or the four C4 → C6/C7 tests), p-values are Holm-adjusted. A lone raw p < 0.05 among several tests is reported as a lead, not a finding.
+- **Interactions** (a step's gain on one model minus the other, or judge minus EX) have no McNemar test. They get a per-question contrast with a paired bootstrap CI and a two-sided bootstrap p (09, D24).
+- **Pre-registration:** the test-split runs (06's T1 check, 09) fix the hypotheses, the family, the reading rule and the expected CI half-widths in `tasks/todo.md` before any model call. "Unknown" is a verdict, distinct from "no effect".
 
 ## One change at a time
 
@@ -52,8 +55,12 @@ promptfoo's own prompt template is a placeholder (`{{question}}`). Multi-step co
   - Each entry stores the original call's timings, so latency always describes a real call (promptfoo's own latency is ~0 ms on a replay).
 - **Two-pass runner** (`scripts/run_ablation.py`):
   1. A warm-up per config at concurrency 1, so timings aren't distorted by parallel requests.
-  2. A combined pass at concurrency 4 with `BIRDEVAL_CACHE_ONLY=1`. A cache miss there raises an error instead of calling the model, and the runner fails on any provider error.
+  2. A combined pass at concurrency 4 with `BIRDEVAL_CACHE_ONLY=1`. A cache miss there raises an error instead of calling the model, and the runner fails on any provider error. `--replay` reruns only this pass, and `--jobs` sets its concurrency.
+  - *Limit (D24):* schema linking's query embeddings aren't disk-cached, so the combined pass recomputes them. In 09 the GPU fell back to the CPU, whose slightly different embeddings changed 30 prompts. Those rows failed as cache misses rather than being silently re-answered, and they were replayed after a reboot.
 - **The seed doesn't make qwen3.5 deterministic; the cache does (D23).** On Ollama's MLX runner, qwen3.5:9b didn't reproduce 43 of 300 C1 replies cached two days earlier, at temperature 0 and seed 42, with the same digest and Ollama version. 17 of those also differed from a fresh call. The coder (llama.cpp runner) reproduced 300 of 300. Every reported number is therefore a replay of one recorded run: reruns are identical, but a fresh rerun of qwen3.5 would move by a point or two.
+- **On the 5070 (Ollama 0.40.17, llama.cpp), replies depend on server state, for both models (D24).** Repeated in the same order after a model reload, 10 of 10 calls matched on both models. But one request aborted when sent alone and got a normal reply inside the pipeline, and the native provider matched the custom provider's cached replies on 1,628 of 1,872 (coder 853 of 936). 09's numbers are reproducible through the disk cache, not from the request.
+- **Ollama's repeat-limit abort** (HTTP 500 "token repeat limit reached") is cached as a reply that fails to execute, so a cache-only pass can replay it. Every other HTTP error still raises (D24).
+- **Version pin:** a run can set `BIRDEVAL_OLLAMA_VERSION`. The runner then stops before each promptfoo pass if Ollama's version has changed. Ollama's updater replaced the server a minute into 09's first start.
 - **Nondeterminism shows up as cache misses.** A cache miss on an unchanged pipeline led to a real bug: value-index ties depended on `PYTHONHASHSEED`, so prompts differed between processes. It was fixed with a regression test that runs the lookup under three hash seeds.
 
 ## Leakage rules
@@ -71,7 +78,7 @@ Every row records:
 - the number of calls;
 - the original wall-clock latency, including candidate execution for voting configs.
 
-Timings come from one machine (MacBook Pro M3 Pro, 18 GB, Ollama MLX runner), where prefill dominates at about 500 tok/s. Configs are compared on this hardware only. Absolute seconds won't transfer elsewhere.
+Timings come from one machine (MacBook Pro M3 Pro, 18 GB, Ollama MLX runner), where prefill dominates at about 500 tok/s. Configs are compared on this hardware only. Absolute seconds won't transfer elsewhere. Experiment 09's timings come from an RTX 5070 (llama.cpp runner) and are compared only with each other. On the same 150 questions it is 3.5–7.4× faster per question than the Mac, more for C7 than for C1.
 
 ## Provenance
 
@@ -80,6 +87,10 @@ Timings come from one machine (MacBook Pro M3 Pro, 18 GB, Ollama MLX runner), wh
 - **One build behind every result:** all 10,234 cached qwen3.5 calls were made after that model was pulled, under that tag.
 - **The model rerun (D22):** `qwen2.5-coder:7b`, digest `dae161e27b0e` (7.6B, Q4_K_M, llama.cpp runner, `num_ctx` enforced), 4,209 cached calls.
 - **Experiment 08 (D23):** 600 generations and 600 judge verdicts on eval, through promptfoo's native provider and its own cache, with the same two digests.
+- **Experiment 09 (D24):** a second machine, Windows 11, RTX 5070 12 GB, Ollama 0.40.17, promptfoo 0.125.1, Node 22.23, Python 3.12.
+  - **Models:** `qwen3.5:9b` digest `56671c2ab938` (9.0B, Q4_K_M, llama.cpp; Modelfile `temperature 1`, `top_k 20`, `top_p 0.95`, `presence_penalty 1.5`, of which the requests override only temperature). The same coder digest, and `nomic-embed-text` `0a109f422b47`.
+  - **Calls:** 22,000 new cached calls, plus 1,872 native generations and 1,872 judge verdicts.
+  - **Where it's recorded:** `results/09_replication__test.md` and `results/09_judge__test.md`.
 - **Going forward,** the runner writes these facts into every `results/*.md` (D1 correction).
 
 ## promptfoo features used (D18, D23)
@@ -100,5 +111,7 @@ Experiment 08 (D23), on the single-call C1 config, each one measured against exe
 - `--filter-providers` and `--grader echo` for the generation passes;
 - `PROMPTFOO_PASS_RATE_THRESHOLD` as a regression gate (`make gate`);
 - `promptfoo validate` on every config in CI.
+
+Experiment 09 reuses both setups unchanged on the test split. promptfoo 0.125 defers model-graded assertions to the end of the full pass, grouped by grader, so its first ~65 min replay the generations with the judge idle.
 
 Still skipped, with reasons in D18: `--resume`, `--repeat`, test generators, and promptfoo's cache or native provider for the multi-call configs.

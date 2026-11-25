@@ -184,6 +184,76 @@ Over all 600 outputs: agreement with EX 72.2%, Cohen's κ = 0.43 (0.33 to 0.53).
 
 *Exploratory, self-preference:* (judge − EX) on qwen3.5's SQL minus the same on the coder's: -2.3 pp (-9.0 to +4.7). The judge is qwen3.5:9b.
 
+## Test-split replication on the RTX 5070 desktop (09, D24)
+
+The headline configs ± hints on both models, on all 468 test questions, run on a Windows desktop (RTX 5070, Ollama 0.40.17 on llama.cpp). qwen3.5:9b is a different build from the Mac's (Q4_K_M, digest `56671c2ab938`, vs nvfp4 on MLX); qwen2.5-coder:7b is the same digest. Labels carry `@5070`, and nothing here joins the Mac's rows. Source: `results/per_question_5070.csv` and `results/per_question_native_5070.csv`. Hypotheses and rules fixed before the run in `tasks/todo.md`.
+
+### Pre-registered tests (confirmatory: the questions outside eval)
+
+Every lead was chosen on the 150 eval questions, so the verdict uses the 318 test questions outside eval; all test questions are reported beside them. Holm over the 6 tests in each set. H1/H2: exact McNemar. H3/H4 are interactions, so their p is a two-sided paired bootstrap (10,000 resamples of questions). H4 uses the promptfoo-native C1 cells (their EX and the judge on the same rows). **Supported** = Holm p < 0.05 with the predicted sign; **contradicted** = the CI excludes 0 on the other side; anything else is unknown, not "no effect". The eval-questions column is the 5070's own run on the questions the leads were chosen on: descriptive, no test.
+
+| # | Hypothesis | Eval estimate (Mac) | 5070, the same 150 eval questions: Δ (95% CI) | Fresh 318: Δ (95% CI) | fixed / broke, p, Holm p | Verdict | All 468: Δ (95% CI) | Holm p |
+|---|---|---|---|---|---|---|---|---|
+| H1a | C7 > C1, no hints | +8.7 | +6.0 (-1.3 to +14.0) | +14.8 (+9.7 to +20.1) | 61 / 14, p < 0.001, Holm <0.001 | **supported** | +12.0 (+7.9 to +16.2) | <0.001 |
+| H1b | C7 > C1, with hints | +8.0 | +8.7 (+0.7 to +16.7) | +11.0 (+6.3 to +16.0) | 51 / 16, p < 0.001, Holm <0.001 | **supported** | +10.3 (+6.2 to +14.5) | <0.001 |
+| H2a | C4 > C3 (schema linking), no hints | +4.7 | +2.7 (-4.0 to +9.3) | +1.9 (-2.2 to +6.0) | 26 / 20, p = 0.461, Holm 0.923 | unknown | +2.1 (-1.3 to +5.8) | 0.591 |
+| H2b | C4 > C3, with hints | +3.3 | +0.0 (-6.7 to +6.7) | +6.0 (+2.2 to +10.1) | 30 / 11, p = 0.004, Holm 0.017 | **supported** | +4.1 (+0.9 to +7.5) | 0.074 |
+| H3 | hints help the coder less: mean over the 7 configs of Δhints(coder) − Δhints(qwen3.5) < 0 | -7.9 | -5.8 (-11.8 to +0.2) | +0.6 (-3.4 to +4.5) | bootstrap p = 0.768, Holm 0.923 | unknown | -1.5 (-4.8 to +1.8) | 0.591 |
+| H4 | the judge overstates the coder's hint gain on C1: Δhints(judge) − Δhints(EX) > 0 | +8.7 | +8.0 (-2.0 to +18.0) | +6.6 (+0.6 to +12.6) | bootstrap p = 0.035, Holm 0.106 | unknown | +7.1 (+1.9 to +12.2) | 0.029 |
+
+### The ladder on the 5070: qwen3.5:9b, all 468 test questions
+
+| Step | What changes | EX no hints (95% CI) | Δ vs previous (95% CI), p | EX with hints (95% CI) | Δ vs previous (95% CI), p | Prompt tok/q | s/q | Paper, GPT-4o (no hints / hints) |
+|---|---|---|---|---|---|---|---|---|
+| **C0** | DDL only | 22.4 (19–26) | — | 44.4 (40–49) | — | 821 | 0.9 | 49.8 / — |
+| **C1** | + BIRD column descriptions | 31.8 (28–36) | +9.4 (+6.0 to +12.8), p < 0.001 | 44.7 (40–49) | +0.2 (-3.0 to +3.4), p = 1.000 | 1,897 | 0.9 | 59.6 / 72.0 |
+| **C3** | + LLM profiling summaries (fused) | 38.7 (34–43) | +6.8 (+3.0 to +10.9), p < 0.001 | 49.1 (45–54) | +4.5 (+0.4 to +8.5), p = 0.035 | 8,074 | 0.9 | 63.2 / 73.0 |
+| **C4** | + schema linking | 40.8 (36–45) | +2.1 (-1.3 to +5.8), p = 0.295 | 53.2 (49–58) | +4.1 (+0.9 to +7.5), p = 0.025 | 18,455 | 6.9 | 63.2 / 73.0 |
+| **C6** | + 3 candidates, majority vote | 42.5 (38–47) | +1.7 (+0.0 to +3.4), p = 0.077 | 54.9 (50–59) | +1.7 (+0.0 to +3.4), p = 0.096 | 20,280 | 9.2 | not isolated |
+| **C7** | + SQL sanity checks | 43.8 (39–48) | +1.3 (+0.0 to +2.6), p = 0.109 | 54.9 (50–59) | +0.0 (-1.1 to +1.1), p = 1.000 | 20,478 | 9.4 | not isolated |
+| **Oracle** | gold SQL's columns only (upper bound) | 52.1 (48–57) | +11.3 vs C4 (+8.1 to +14.5), p < 0.001 | 59.8 (55–64) | +6.6 vs C4 (+3.8 to +9.6), p < 0.001 | 745 | 0.9 | 69.0 / 77.4 |
+
+### The ladder on the 5070: qwen2.5-coder:7b, all 468 test questions
+
+| Step | What changes | EX no hints (95% CI) | Δ vs previous (95% CI), p | EX with hints (95% CI) | Δ vs previous (95% CI), p | Prompt tok/q | s/q | Paper, GPT-4o (no hints / hints) |
+|---|---|---|---|---|---|---|---|---|
+| **C0** | DDL only | 26.5 (23–31) | — | 46.8 (42–51) | — | 713 | 0.6 | 49.8 / — |
+| **C1** | + BIRD column descriptions | 35.3 (31–40) | +8.8 (+5.6 to +12.2), p < 0.001 | 47.2 (43–52) | +0.4 (-2.1 to +3.0), p = 0.871 | 1,836 | 0.6 | 59.6 / 72.0 |
+| **C3** | + LLM profiling summaries (fused) | 39.7 (35–44) | +4.5 (+1.1 to +8.1), p = 0.019 | 48.9 (44–53) | +1.7 (-1.3 to +4.9), p = 0.341 | 7,970 | 0.7 | 63.2 / 73.0 |
+| **C4** | + schema linking | 42.7 (38–47) | +3.0 (-0.4 to +6.4), p = 0.109 | 50.4 (46–55) | +1.5 (-1.7 to +4.7), p = 0.419 | 17,697 | 4.8 | 63.2 / 73.0 |
+| **C6** | + 3 candidates, majority vote | 42.5 (38–47) | -0.2 (-1.7 to +1.3), p = 1.000 | 53.0 (48–57) | +2.6 (+1.1 to +4.3), p = 0.004 | 19,410 | 6.3 | not isolated |
+| **C7** | + SQL sanity checks | 43.2 (39–48) | +0.6 (+0.0 to +1.5), p = 0.250 | 53.4 (49–58) | +0.4 (+0.0 to +1.1), p = 0.500 | 19,574 | 6.4 | not isolated |
+| **Oracle** | gold SQL's columns only (upper bound) | 52.1 (48–57) | +9.4 vs C4 (+6.6 to +12.4), p < 0.001 | 60.9 (56–65) | +10.5 vs C4 (+7.7 to +13.5), p < 0.001 | 725 | 0.6 | 69.0 / 77.4 |
+
+*Per-step p values in the ladders are unadjusted and descriptive; the tests above carry the claims. Paper column: GPT-4o, as in the first ladder.*
+
+### 5070 vs Mac on the 150 eval questions (secondary)
+
+Same questions, prompts and seeds, different machine and runtime, and for qwen3.5 a different build. Paired bootstrap CI, no test or verdict: a gap here is a build-and-machine difference, not a model effect.
+
+| Config | qwen3.5 no hints: 5070 / Mac, Δ (95% CI) | with hints | coder no hints | with hints |
+|---|---|---|---|---|
+| **C0** | 20.7 / 24.0, -3.3 (-7.3 to +0.7) | 47.3 / 50.7, -3.3 (-10.0 to +3.3) | 28.0 / 28.7, -0.7 (-2.0 to +0.0) | 46.7 / 46.0, +0.7 (+0.0 to +2.0) |
+| **C1** | 32.0 / 32.7, -0.7 (-6.0 to +4.7) | 46.7 / 51.3, -4.7 (-10.0 to +0.7) | 39.3 / 37.3, +2.0 (-0.7 to +5.3) | 46.7 / 46.7, +0.0 (+0.0 to +0.0) |
+| **C3** | 35.3 / 34.7, +0.7 (-5.3 to +6.7) | 52.0 / 53.3, -1.3 (-8.0 to +5.3) | 40.0 / 39.3, +0.7 (+0.0 to +2.0) | 50.7 / 50.7, +0.0 (+0.0 to +0.0) |
+| **C4** | 38.0 / 39.3, -1.3 (-6.7 to +4.0) | 52.0 / 56.7, -4.7 (-11.3 to +1.3) | 40.7 / 40.0, +0.7 (+0.0 to +2.0) | 49.3 / 49.3, +0.0 (+0.0 to +0.0) |
+| **C6** | 37.3 / 40.0, -2.7 (-8.0 to +2.7) | 56.0 / 58.7, -2.7 (-8.0 to +2.7) | 40.0 / 42.0, -2.0 (-4.7 to +0.0) | 52.0 / 50.7, +1.3 (-1.3 to +4.0) |
+| **C7** | 38.0 / 41.3, -3.3 (-8.7 to +2.0) | 55.3 / 59.3, -4.0 (-10.0 to +1.3) | 40.7 / 42.0, -1.3 (-3.3 to +0.0) | 52.0 / 50.7, +1.3 (-1.3 to +4.0) |
+| **Oracle** | 48.7 / 53.3, -4.7 (-9.3 to +0.0) | 56.7 / 61.3, -4.7 (-10.0 to +0.7) | 52.0 / 52.7, -0.7 (-2.0 to +0.0) | 58.7 / 58.7, +0.0 (+0.0 to +0.0) |
+
+### The judge cells on the 5070 (promptfoo-native C1)
+
+A row that differs from the custom provider's cached SQL is re-run through `birdeval.llm.chat` without its cache. Grader errors (reply not readable as a verdict) count as fails, as promptfoo does.
+
+| Prompt | Model | n | Same SQL as the custom row | Of the rest: same as a fresh custom call | EX native / custom | Judge pass % | Grader errors |
+|---|---|---|---|---|---|---|---|
+| C1-native | qwen3.5 | 468 | 377 | 52 of 91 | 31.6 / 31.8 | 35.3 | 11 |
+| C1-native+hints | qwen3.5 | 468 | 398 | 35 of 70 | 45.3 / 44.7 | 54.1 | 26 |
+| C1-native | coder | 468 | 417 | 23 of 51 | 34.6 / 35.3 | 37.0 | 7 |
+| C1-native+hints | coder | 468 | 436 | 17 of 32 | 46.6 / 47.2 | 56.0 | 14 |
+
+Over all 1,872 outputs: judge agrees with EX on 70.8%, Cohen's κ = 0.40. Sensitivity 70.7 (67–74), 523/740; specificity 70.8 (68–73), 802/1132.
+
 ## Every eval config (qwen3.5:9b)
 
 | Config | Experiment | EX no hints (95% CI) | EX with hints (95% CI) | Valid SQL % (no hints) | LLM calls/q | Prompt tok/q | s/q |

@@ -10,6 +10,8 @@ can be recomputed without models, databases or promptfoo.
   - prompt trimming T1-T4 vs C3 with the pre-registered non-inferiority verdicts
   - T1 vs C3 on the 468-question test split (results/per_question_test.csv)
   - the headline configs on qwen2.5-coder:7b (labels ending in @coder): model gap, ladder, step x model
+  - 09: the test-split replication on the RTX 5070 desktop (results/per_question_5070.csv and
+    results/per_question_native_5070.csv): the pre-registered H1-H4, both ladders, 5070 vs Mac on eval
   - every eval config (cost and accuracy)
   - figures: the ladder, and cost vs accuracy with the Pareto frontier
 
@@ -378,7 +380,7 @@ def native_section(nat: pd.DataFrame, df: pd.DataFrame, n_boot: int = 10_000, se
         "\n## promptfoo-native evaluation (08, D23)\n\n"
         "C1 (BIRD descriptions, one call) on promptfoo's `ollama:chat` provider, as a prompts × providers matrix "
         "(C1 ± hints × qwen3.5:9b / qwen2.5-coder:7b), with promptfoo's built-in assertions scored next to EX. "
-        f"Source: `{NATIVE_CSV.relative_to(ROOT)}`. Analysis fixed before the run in `tasks/todo.md`.\n\n"
+        f"Source: `{NATIVE_CSV.relative_to(ROOT).as_posix()}`. Analysis fixed before the run in `tasks/todo.md`.\n\n"
         "### 1. Does the native provider reproduce the custom provider?\n\n" + repro +
         "\n*A differing row is re-run through `birdeval.llm.chat` without its cache. qwen3.5 runs on Ollama's MLX "
         "runner, which doesn't reproduce every reply between runs (D23); the coder's llama.cpp runner does.*\n\n"
@@ -388,6 +390,153 @@ def native_section(nat: pd.DataFrame, df: pd.DataFrame, n_boot: int = 10_000, se
         "\n### 3. The LLM judge (`llm-rubric`, reference-free) against EX\n\n"
         "The grader is qwen3.5:9b. It sees the question, BIRD's hint (in every cell, including the no-hints "
         "ones), the C1 schema and the SQL, never gold. κ CI: bootstrap over questions.\n\n" + judge)
+
+
+# --- 09: test-split replication on the RTX 5070 desktop (D24) ------------------------------
+
+CSV_5070 = ROOT / "results" / "per_question_5070.csv"
+NATIVE_5070 = ROOT / "results" / "per_question_native_5070.csv"
+Q5070, C5070 = "@5070", "@coder@5070"  # label suffixes: qwen3.5:9b (llama.cpp build) / qwen2.5-coder:7b
+# Pre-registered in tasks/todo.md (09 spec) before any model call on the 5070: (name, hypothesis,
+# predicted sign, eval estimate in pp). H1/H2 are qwen3.5.
+HYPOTHESES = [
+    ("H1a", "C7 > C1, no hints", +1, 8.7), ("H1b", "C7 > C1, with hints", +1, 8.0),
+    ("H2a", "C4 > C3 (schema linking), no hints", +1, 4.7), ("H2b", "C4 > C3, with hints", +1, 3.3),
+    ("H3", "hints help the coder less: mean over the 7 configs of Δhints(coder) − Δhints(qwen3.5) < 0", -1, -7.9),
+    ("H4", "the judge overstates the coder's hint gain on C1: Δhints(judge) − Δhints(EX) > 0", +1, 8.7),
+]
+
+
+def _boot(x: np.ndarray, n_boot: int, seed: int) -> tuple[float, float, float]:
+    """Mean of per-question values, percentile 95% CI and two-sided bootstrap p (floored at 1/n_boot)."""
+    b = x[np.random.default_rng(seed).integers(0, len(x), size=(n_boot, len(x)))].mean(axis=1)
+    lo, hi = np.percentile(b, [2.5, 97.5])
+    p = max(min(2 * min((b <= 0).mean(), (b >= 0).mean()), 1.0), 1 / n_boot)
+    return 100 * lo, 100 * hi, float(p)
+
+
+def hypothesis_tests(w: pd.DataFrame, nat: pd.DataFrame, qids: list[int], n_boot: int = 10_000,
+                     seed: int = 0) -> list[dict]:
+    """The 09 family on one question set. H1/H2: paired Δ, bootstrap CI, exact McNemar.
+    H3/H4 are interactions (no McNemar): per-question contrast, bootstrap CI and p."""
+    w = w.loc[qids]
+    res = []
+    for (a, b), h in [(("C1-bird", "C7"), False), (("C1-bird", "C7"), True),
+                      (("C3-fused", "C4-linked"), False), (("C3-fused", "C4-linked"), True)]:
+        res.append(paired(w, lbl(a + Q5070, h), lbl(b + Q5070, h), n_boot, seed))
+    hint_gain = {m: np.mean([(w[lbl(c + m, True)] - w[lbl(c + m, False)]).to_numpy()
+                             for c, _, _ in [*LADDER, ORACLE]], axis=0) for m in (Q5070, C5070)}
+    for x in (hint_gain[C5070] - hint_gain[Q5070],
+              (lambda g: (g["judge"]["C1-native+hints"] - g["judge"]["C1-native"])
+               - (g["ex"]["C1-native+hints"] - g["ex"]["C1-native"]))(
+                  nat[nat["model"] == "coder"].pivot_table(index="question_id", columns="prompt",
+                                                            values=["ex", "judge"]).loc[qids]).to_numpy()):
+        lo, hi, p = _boot(x, n_boot, seed)
+        res.append({"delta": 100 * x.mean(), "lo": lo, "hi": hi, "p": p})
+    adj = multipletests([r["p"] for r in res], method="holm")[1]
+    for r, pa in zip(res, adj):
+        r["holm"] = float(pa)
+    return res
+
+
+def _h_verdict(r: dict, sign: int) -> str:
+    if r["holm"] < 0.05 and np.sign(r["delta"]) == sign:
+        return "**supported**"
+    if (sign > 0 and r["hi"] < 0) or (sign < 0 and r["lo"] > 0):
+        return "**contradicted**"
+    return "unknown"
+
+
+def hypothesis_table(w: pd.DataFrame, nat: pd.DataFrame, fresh: list[int], all_q: list[int],
+                     eval_q: list[int]) -> str:
+    f, a, e = (hypothesis_tests(w, nat, q) for q in (fresh, all_q, eval_q))
+    head = (f"| # | Hypothesis | Eval estimate (Mac) | 5070, the same {len(eval_q)} eval questions: Δ (95% CI) | "
+            f"Fresh {len(fresh)}: Δ (95% CI) | fixed / broke, p, Holm p | Verdict | All {len(all_q)}: Δ (95% CI) | "
+            "Holm p |\n|---|---|---|---|---|---|---|---|---|\n")
+    lines = []
+    for (name, what, sign, est), rf, ra, re_ in zip(HYPOTHESES, f, a, e):
+        test = (f"{rf['fixed']} / {rf['broke']}, {fmt_p(rf['p'], True)}" if "fixed" in rf
+                else f"bootstrap {fmt_p(rf['p'], True)}") + f", Holm {fmt_p(rf['holm'])}"
+        lines.append(f"| {name} | {what} | {est:+.1f} | {re_['delta']:+.1f} ({re_['lo']:+.1f} to {re_['hi']:+.1f}) | "
+                     f"{rf['delta']:+.1f} ({rf['lo']:+.1f} to {rf['hi']:+.1f}) | "
+                     f"{test} | {_h_verdict(rf, sign)} | {ra['delta']:+.1f} ({ra['lo']:+.1f} to {ra['hi']:+.1f}) | "
+                     f"{fmt_p(ra['holm'])} |")
+    return head + "\n".join(lines) + "\n"
+
+
+def machine_gap_table(w9: pd.DataFrame, mac: pd.DataFrame) -> str:
+    """Secondary, no verdict: 5070 − Mac on the 150 eval questions, per config. Different machine,
+    runtime and qwen3.5 build (the coder's digest is the same), so not a model effect."""
+    wm = wide(mac)
+    w9 = w9.loc[wm.index]
+    head = ("| Config | qwen3.5 no hints: 5070 / Mac, Δ (95% CI) | with hints | coder no hints | with hints |\n"
+            "|---|---|---|---|---|\n")
+    lines = []
+    for config, short, _ in [*LADDER, ORACLE]:
+        cells = [f"**{short}**"]
+        for mac_sfx, sfx in (("", Q5070), (CODER, C5070)):
+            for h in (False, True):
+                x, y = wm[lbl(config + mac_sfx, h)], w9[lbl(config + sfx, h)]
+                r = paired(pd.DataFrame({"mac": x, "pc": y}), "mac", "pc")
+                cells.append(f"{100 * y.mean():.1f} / {100 * x.mean():.1f}, {r['delta']:+.1f} "
+                             f"({r['lo']:+.1f} to {r['hi']:+.1f})")
+        lines.append("| " + " | ".join(cells) + " |")
+    return head + "\n".join(lines) + "\n"
+
+
+def judge_5070_table(nat: pd.DataFrame, w9: pd.DataFrame) -> str:
+    custom = {("C1-native", "qwen3.5"): "C1-bird" + Q5070, ("C1-native+hints", "qwen3.5"): "C1-bird" + Q5070 + "+hints",
+              ("C1-native", "coder"): "C1-bird" + C5070, ("C1-native+hints", "coder"): "C1-bird" + C5070 + "+hints"}
+    rows = ["| Prompt | Model | n | Same SQL as the custom row | Of the rest: same as a fresh custom call | "
+            "EX native / custom | Judge pass % | Grader errors |", "|---|---|---|---|---|---|---|---|"]
+    for (prompt, model), label in custom.items():
+        g = nat[(nat["prompt"] == prompt) & (nat["model"] == model)]
+        d = g[g["same_as_cached"] == 0]
+        rows.append(f"| {prompt} | {model} | {len(g)} | {int(g['same_as_cached'].sum())} | "
+                    f"{int(d['same_as_fresh'].sum())} of {len(d)} | {100 * g['ex'].mean():.1f} / "
+                    f"{100 * w9.loc[g['question_id'], label].mean():.1f} | {100 * g['judge'].mean():.1f} | "
+                    f"{int(g['grader_error'].sum())} |")
+    j, ex = nat["judge"].to_numpy(), nat["ex"].to_numpy()
+    return ("\n".join(rows) + f"\n\nOver all {len(nat):,} outputs: judge agrees with EX on {100 * (j == ex).mean():.1f}%, "
+            f"Cohen's κ = {_kappa(j, ex):.2f}. Sensitivity {_pct_ci(int(j[ex == 1].sum()), int(ex.sum()))}; "
+            f"specificity {_pct_ci(int((j[ex == 0] == 0).sum()), int((ex == 0).sum()))}.\n")
+
+
+def replication_section(d9: pd.DataFrame, nat: pd.DataFrame, mac: pd.DataFrame) -> str:
+    eval_ids = set(mac["question_id"])
+    all_q = sorted(d9["question_id"].unique())
+    fresh = [q for q in all_q if q not in eval_ids]
+    stats, w = per_config(d9), wide(d9)
+    return (
+        "\n## Test-split replication on the RTX 5070 desktop (09, D24)\n\n"
+        f"The headline configs ± hints on both models, on all {len(all_q)} test questions, run on a Windows desktop "
+        "(RTX 5070, Ollama 0.40.17 on llama.cpp). qwen3.5:9b is a different build from the Mac's (Q4_K_M, digest "
+        "`56671c2ab938`, vs nvfp4 on MLX); qwen2.5-coder:7b is the same digest. Labels carry `@5070`, and nothing "
+        f"here joins the Mac's rows. Source: `{CSV_5070.relative_to(ROOT).as_posix()}` and "
+        f"`{NATIVE_5070.relative_to(ROOT).as_posix()}`. Hypotheses and rules fixed before the run in `tasks/todo.md`.\n\n"
+        "### Pre-registered tests (confirmatory: the questions outside eval)\n\n"
+        f"Every lead was chosen on the {len(eval_ids)} eval questions, so the verdict uses the {len(fresh)} test "
+        "questions outside eval; all test questions are reported beside them. Holm over the 6 tests in each set. "
+        "H1/H2: exact McNemar. H3/H4 are interactions, so their p is a two-sided paired bootstrap (10,000 "
+        "resamples of questions). H4 uses the promptfoo-native C1 cells (their EX and the judge on the same rows). "
+        "**Supported** = Holm p < 0.05 with the predicted sign; **contradicted** = the CI excludes 0 on the other "
+        "side; anything else is unknown, not \"no effect\". The eval-questions column is the 5070's own run on the "
+        "questions the leads were chosen on: descriptive, no test.\n\n"
+        + hypothesis_table(w, nat, fresh, all_q, sorted(eval_ids & set(all_q))) +
+        f"\n### The ladder on the 5070: qwen3.5:9b, all {len(all_q)} test questions\n\n"
+        + ladder_table(stats, w, Q5070) +
+        f"\n### The ladder on the 5070: qwen2.5-coder:7b, all {len(all_q)} test questions\n\n"
+        + ladder_table(stats, w, C5070) +
+        "\n*Per-step p values in the ladders are unadjusted and descriptive; the tests above carry the claims. "
+        "Paper column: GPT-4o, as in the first ladder.*\n\n"
+        f"### 5070 vs Mac on the {len(eval_ids)} eval questions (secondary)\n\n"
+        "Same questions, prompts and seeds, different machine and runtime, and for qwen3.5 a different build. "
+        "Paired bootstrap CI, no test or verdict: a gap here is a build-and-machine difference, not a model effect.\n\n"
+        + machine_gap_table(w, mac) +
+        "\n### The judge cells on the 5070 (promptfoo-native C1)\n\n"
+        "A row that differs from the custom provider's cached SQL is re-run through `birdeval.llm.chat` without its "
+        "cache. Grader errors (reply not readable as a verdict) count as fails, as promptfoo does.\n\n"
+        + judge_5070_table(nat, w))
 
 
 def all_configs_table(stats: pd.DataFrame) -> str:
@@ -535,12 +684,14 @@ def main() -> None:
         "Test = every non-dev question, so it contains the 150 eval questions above (their answers are the same "
         "cached calls). Same pre-registered rule, Holm over the 2 tests in the first row. The second row repeats "
         "the comparison on the questions outside eval only; it is a secondary check and gets no verdict. "
-        f"Source: `{TEST_CSV.relative_to(ROOT)}`.\n\n"
+        f"Source: `{TEST_CSV.relative_to(ROOT).as_posix()}`.\n\n"
         + t1_test_table(pd.read_csv(TEST_CSV), set(df["question_id"])) +
         (coder_section(full) if len(df) < len(full) else "") +
         (native_section(pd.read_csv(NATIVE_CSV), full) if NATIVE_CSV.exists() else "") +
+        (replication_section(pd.read_csv(CSV_5070), pd.read_csv(NATIVE_5070), full)
+         if CSV_5070.exists() and NATIVE_5070.exists() else "") +
         "\n## Every eval config (qwen3.5:9b)\n\n" + all_configs_table(stats) +
-        "\n![ladder](../docs/figures/ladder.png)\n\n![pareto](../docs/figures/pareto.png)\n")
+        "\n![ladder](../docs/figures/ladder.png)\n\n![pareto](../docs/figures/pareto.png)\n", encoding="utf-8")
     print(f"-> {OUT.relative_to(ROOT)}, {FIG.relative_to(ROOT)}/ladder.*, pareto.*")
 
 
